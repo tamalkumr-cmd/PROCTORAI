@@ -1,0 +1,30 @@
+{
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Effect": "Allow",
+      "Action": ["logs:CreateLogGroup","logs:CreateLogStream","logs:PutLogEvents"],
+      "Resource": "arn:aws:logs:ap-south-1:582093723182:*"
+    },
+    {
+      "Effect": "Allow",
+      "Action": ["dynamodb:GetItem","dynamodb:PutItem","dynamodb:UpdateItem","dynamodb:Query","dynamodb:Scan"],
+      "Resource": "arn:aws:dynamodb:ap-south-1:582093723182:table/*"
+    },
+    {
+      "Effect": "Allow",
+      "Action": ["s3:GetObject","s3:PutObject","s3:CopyObject"],
+      "Resource": "arn:aws:s3:::proctorai-media-tamal/*"
+    },
+    {
+      "Effect": "Allow",
+      "Action": ["rekognition:IndexFaces","rekognition:SearchFacesByImage","rekognition:DetectFaces","rekognition:DetectLabels"],
+      "Resource": "*"
+    },
+    {
+      "Effect": "Allow",
+      "Action": ["sns:Publish"],
+      "Resource": "arn:aws:sns:ap-south-1:582093723182:proctorai-alerts"
+    }
+  ]
+}

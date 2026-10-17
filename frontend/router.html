@@ -1,0 +1,103 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>ProctorAI</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Archivo:wght@500;600;700&family=IBM+Plex+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+:root{--surface:#FBFCFD;--panel:#FFFFFF;--ink:#16202B;--muted:#66788A;--line:#E3E9EF;--slate:#2D4A63;--alert:#C3352B;--alert-bg:#FBEBEA}
+*{box-sizing:border-box}
+body{margin:0;background:var(--surface);color:var(--ink);font-family:"IBM Plex Sans",system-ui,sans-serif;
+  font-size:14px;line-height:1.5;display:flex;align-items:center;justify-content:center;min-height:100vh}
+.card{max-width:460px;padding:40px 34px;text-align:center}
+.mark{font-family:"Archivo",sans-serif;font-weight:700;font-size:22px;letter-spacing:-.025em;margin-bottom:8px}
+.mark span{color:var(--muted);font-weight:500}
+p{color:var(--muted);margin:0 0 24px}
+.spin{width:24px;height:24px;margin:0 auto 20px;border:2px solid var(--line);
+  border-top-color:var(--slate);border-radius:50%;animation:sp .8s linear infinite}
+@keyframes sp{to{transform:rotate(360deg)}}
+.btn{padding:11px 24px;font-size:14.5px;font-family:inherit;font-weight:600;cursor:pointer;border-radius:8px;
+  border:1px solid var(--slate);background:var(--slate);color:#fff;text-decoration:none;display:inline-block;margin:4px}
+.btn:hover{background:#22384B}
+.btn.ghost{background:var(--panel);color:var(--ink);border-color:var(--line)}
+.btn.ghost:hover{border-color:var(--muted)}
+.err{background:var(--alert-bg);color:var(--alert);padding:13px 15px;border-radius:8px;font-size:13.5px;margin-bottom:20px;text-align:left}
+.hidden{display:none}
+@media (prefers-reduced-motion:reduce){.spin{animation:none}}
+</style>
+</head>
+<body>
+<div class="card">
+  <div class="mark">ProctorAI <span>/ exam platform</span></div>
+
+  <div id="loading">
+    <div class="spin"></div>
+    <p>Signing you in…</p>
+  </div>
+
+  <div id="choose" class="hidden">
+    <p>Sign in to continue, or create a student account.</p>
+    <a class="btn" id="signin">Sign in</a>
+    <a class="btn ghost" href="signup.html">Create account</a>
+  </div>
+
+  <div id="problem" class="hidden">
+    <div class="err" id="problemMsg"></div>
+    <a class="btn" id="retry">Sign in again</a>
+  </div>
+</div>
+
+<script>
+const DOMAIN    = "https://ap-south-1yx4st7fyc.auth.ap-south-1.amazoncognito.com";
+const CLIENT_ID = "4aeuraag6jvio5kp81i32sjll5";
+const HERE      = location.origin + location.pathname;
+
+const $ = id => document.getElementById(id);
+const loginUrl = `${DOMAIN}/oauth2/authorize?client_id=${CLIENT_ID}`
+  + `&response_type=token&scope=openid+email&redirect_uri=${encodeURIComponent(HERE)}`;
+
+$("signin").href = loginUrl;
+$("retry").href = loginUrl;
+
+function show(id){
+  ["loading","choose","problem"].forEach(x => $(x).classList.add("hidden"));
+  $(id).classList.remove("hidden");
+}
+
+function claimsOf(t){
+  return JSON.parse(atob(t.split(".")[1].replace(/-/g,"+").replace(/_/g,"/")));
+}
+
+const hash = new URLSearchParams(location.hash.substring(1));
+let token = hash.get("id_token") || sessionStorage.getItem("pa_token");
+
+if (!token){ show("choose"); }
+else {
+  try {
+    const c = claimsOf(token);
+    if (c.exp && c.exp * 1000 < Date.now()){
+      sessionStorage.removeItem("pa_token");
+      show("choose");
+    } else {
+      sessionStorage.setItem("pa_token", token);
+      const groups = c["cognito:groups"] || [];
+      if (groups.includes("proctors")) location.replace("author.html");
+      else if (groups.includes("students")) location.replace("student.html");
+      else {
+        show("problem");
+        $("problemMsg").innerHTML =
+          `Your account (<b>${c.email || "unknown"}</b>) isn't in a student or proctor group yet. `
+          + `Ask an administrator to add you before signing in again.`;
+      }
+    }
+  } catch (e) {
+    sessionStorage.removeItem("pa_token");
+    show("choose");
+  }
+}
+</script>
+</body>
+</html>

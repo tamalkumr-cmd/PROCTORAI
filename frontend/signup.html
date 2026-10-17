@@ -1,0 +1,68 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>ProctorAI — Create account</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Archivo:wght@500;600;700&family=IBM+Plex+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+:root{--surface:#FBFCFD;--panel:#FFFFFF;--ink:#16202B;--muted:#66788A;--line:#E3E9EF;--slate:#2D4A63;--calm:#167C55;--calm-bg:#E8F4EE}
+*{box-sizing:border-box}
+body{margin:0;background:var(--surface);color:var(--ink);font-family:"IBM Plex Sans",system-ui,sans-serif;font-size:14px;line-height:1.5}
+header{border-bottom:1px solid var(--line);background:var(--panel)}
+.hbar{max-width:600px;margin:0 auto;padding:16px 28px}
+.mark{font-family:"Archivo",sans-serif;font-weight:700;font-size:17px;letter-spacing:-.02em}
+.mark span{color:var(--muted);font-weight:500}
+.card{max-width:520px;margin:60px auto;background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:36px 32px;text-align:center}
+h1{font-family:"Archivo",sans-serif;font-size:24px;letter-spacing:-.025em;margin:0 0 10px}
+p{color:var(--muted);margin:0 0 22px;max-width:44ch;margin-left:auto;margin-right:auto}
+.steps{text-align:left;max-width:380px;margin:0 auto 24px;padding:18px 20px;background:var(--surface);border-radius:8px}
+.steps ol{margin:0;padding-left:20px}
+.steps li{margin-bottom:7px;font-size:13.5px}
+.steps li:last-child{margin-bottom:0}
+.btn{padding:12px 28px;font-size:15px;font-family:inherit;font-weight:600;cursor:pointer;border-radius:8px;border:1px solid var(--slate);background:var(--slate);color:#fff;text-decoration:none;display:inline-block}
+.btn:hover{background:#22384B}
+.alt{margin-top:18px;font-size:13.5px}
+.alt a{color:var(--slate)}
+.note{margin-top:22px;padding:12px 14px;background:var(--calm-bg);color:var(--calm);border-radius:8px;font-size:12.5px;text-align:left}
+</style>
+</head>
+<body>
+<header><div class="hbar"><div class="mark">ProctorAI <span>/ sign up</span></div></div></header>
+
+<div class="card">
+  <h1>Create your account</h1>
+  <p>Accounts are created through AWS Cognito. You'll come straight back here once you're verified.</p>
+
+  <div class="steps">
+    <ol>
+      <li>Click the button below</li>
+      <li>Choose <b>Sign up</b> on the login page</li>
+      <li>Enter your email and a password</li>
+      <li>Check your inbox for the verification code</li>
+      <li>You'll land on your exam list</li>
+    </ol>
+  </div>
+
+  <a class="btn" id="go">Sign up with email</a>
+
+  <p class="alt">Already have an account? <a href="student.html">Sign in</a></p>
+
+  <div class="note">
+    New accounts are created as student accounts. If you're teaching staff, ask an
+    administrator to move your account to the proctor group.
+  </div>
+</div>
+
+<script>
+const DOMAIN    = "https://ap-south-1yx4st7fyc.auth.ap-south-1.amazoncognito.com";
+const CLIENT_ID = "4aeuraag6jvio5kp81i32sjll5";
+const AFTER     = window.location.origin + "/student.html";
+document.getElementById("go").href =
+  `${DOMAIN}/signup?client_id=${CLIENT_ID}&response_type=token&scope=openid+email`
+  + `&redirect_uri=${encodeURIComponent(AFTER)}`;
+</script>
+</body>
+</html>

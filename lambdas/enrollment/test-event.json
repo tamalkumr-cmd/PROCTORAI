@@ -1,0 +1,13 @@
+{
+  "requestContext": {
+    "authorizer": {
+      "jwt": {
+        "claims": {
+          "sub": "d1c32dda-8011-70b1-624e-d88f0cd0c339",
+          "cognito:groups": "[students]"
+        }
+      }
+    }
+  },
+  "body": "{\"image\":\"\",\"keystrokes\":[]}"
+}

@@ -1,0 +1,203 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>ProctorAI — My Exams</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Archivo:wght@500;600;700&family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+:root{
+  --surface:#FBFCFD; --panel:#FFFFFF; --ink:#16202B; --muted:#66788A;
+  --line:#E3E9EF; --line-soft:#EFF3F7; --slate:#2D4A63;
+  --calm:#167C55; --calm-bg:#E8F4EE;
+  --watch:#B26A00; --watch-bg:#FBF1E0;
+  --alert:#C3352B; --alert-bg:#FBEBEA;
+  --r:10px;
+}
+*{box-sizing:border-box}
+body{margin:0; background:var(--surface); color:var(--ink);
+  font-family:"IBM Plex Sans",system-ui,sans-serif; font-size:14px; line-height:1.5}
+.num{font-family:"IBM Plex Mono",monospace; font-variant-numeric:tabular-nums}
+.wrap{max-width:860px; margin:0 auto; padding:0 28px 72px}
+
+header{border-bottom:1px solid var(--line); background:var(--panel)}
+.hbar{max-width:860px; margin:0 auto; padding:16px 28px; display:flex; align-items:center; gap:16px; flex-wrap:wrap}
+.mark{font-family:"Archivo",sans-serif; font-weight:700; font-size:17px; letter-spacing:-.02em}
+.mark span{color:var(--muted); font-weight:500}
+.whoami{margin-left:auto; font-size:12px; color:var(--muted)}
+
+.intro{padding:36px 0 6px}
+.intro h1{font-family:"Archivo",sans-serif; font-size:27px; letter-spacing:-.025em; margin:0 0 6px}
+.intro p{color:var(--muted); margin:0; max-width:60ch}
+
+.panel{background:var(--panel); border:1px solid var(--line); border-radius:var(--r)}
+.eyebrow{font-size:11px; letter-spacing:.09em; text-transform:uppercase; color:var(--muted); font-weight:600; margin:0 0 10px}
+
+/* enrolment banner */
+.enrol{padding:20px 22px; margin-top:20px; border-left:3px solid var(--watch); background:var(--watch-bg); border-color:var(--line)}
+.enrol h2{font-family:"Archivo",sans-serif; font-size:16px; margin:0 0 5px; color:var(--watch)}
+.enrol p{margin:0 0 14px; font-size:13.5px; color:#8A5400}
+
+/* exam card */
+.ex{padding:20px 22px; border-bottom:1px solid var(--line-soft)}
+.ex:last-child{border-bottom:0}
+.ex-head{display:flex; align-items:flex-start; gap:12px; flex-wrap:wrap}
+.ex-head h3{font-family:"Archivo",sans-serif; font-size:16.5px; font-weight:600; letter-spacing:-.015em; margin:0}
+.ex-desc{color:var(--muted); font-size:13.5px; margin:6px 0 0; max-width:62ch}
+.badge{display:inline-flex; align-items:center; padding:3px 10px; border-radius:20px;
+  font-size:11px; font-weight:600; text-transform:uppercase; letter-spacing:.05em}
+.b-open{background:var(--calm-bg); color:var(--calm)}
+.b-done{background:var(--line-soft); color:var(--muted)}
+.b-live{background:var(--watch-bg); color:var(--watch)}
+.facts{display:flex; gap:22px; flex-wrap:wrap; margin:14px 0 16px; padding:12px 0;
+  border-top:1px solid var(--line-soft); border-bottom:1px solid var(--line-soft)}
+.fact .v{font-family:"IBM Plex Mono",monospace; font-size:17px; font-weight:600}
+.fact .k{font-size:11px; color:var(--muted); text-transform:uppercase; letter-spacing:.06em; margin-top:1px}
+.actions{display:flex; gap:9px; align-items:center; flex-wrap:wrap}
+.note{font-size:12.5px; color:var(--muted)}
+
+button, .btn{padding:9px 18px; font-size:13.5px; font-family:inherit; font-weight:500; cursor:pointer;
+  border-radius:7px; border:1px solid var(--line); background:var(--panel); color:var(--ink);
+  text-decoration:none; display:inline-block; transition:.12s}
+button:hover:not(:disabled), .btn:hover{border-color:var(--muted)}
+button:disabled{opacity:.4; cursor:not-allowed}
+.primary{background:var(--slate); border-color:var(--slate); color:#fff}
+.primary:hover{background:#22384B; border-color:#22384B}
+button:focus-visible, .btn:focus-visible{outline:2px solid var(--slate); outline-offset:2px}
+
+.empty{padding:52px 22px; text-align:center; color:var(--muted); font-size:13.5px}
+.empty b{display:block; color:var(--ink); font-weight:600; margin-bottom:5px; font-size:15px}
+.err{background:var(--alert-bg); color:var(--alert); padding:11px 13px; border-radius:7px; font-size:13px; margin-top:16px}
+.hidden{display:none}
+@media (prefers-reduced-motion:reduce){ *{transition:none!important} }
+.nav{display:flex;gap:4px;margin-left:6px}
+.nav a{padding:5px 11px;border-radius:6px;font-size:13px;color:var(--muted);text-decoration:none}
+.nav a:hover{background:var(--surface);color:var(--ink)}
+.nav a.on{background:var(--surface);color:var(--ink);font-weight:600}
+</style>
+</head>
+<body>
+
+<header>
+  <div class="hbar">
+    <div class="mark">ProctorAI <span>/ my exams</span></div>
+    <nav class="nav" id="nav"></nav>
+    <div class="whoami" id="who">—</div>
+  </div>
+</header>
+
+<div class="wrap">
+
+  <div class="intro">
+    <h1>My exams</h1>
+    <p>Exams you've been added to appear here once your instructor opens them.</p>
+  </div>
+
+  <div class="panel enrol hidden" id="enrolBanner">
+    <h2>Finish enrolling first</h2>
+    <p>You need a reference photo and a typing sample on file before you can start any exam. It takes about a minute.</p>
+    <a href="index.html" class="btn primary">Enrol now</a>
+  </div>
+
+  <div class="panel" style="margin-top:20px">
+    <div id="list"><div class="empty">Loading your exams…</div></div>
+  </div>
+
+  <div id="msg"></div>
+
+</div>
+
+<script src="pa.js"></script>
+<script>
+const DOMAIN    = "https://ap-south-1yx4st7fyc.auth.ap-south-1.amazoncognito.com";
+const CLIENT_ID = "4aeuraag6jvio5kp81i32sjll5";
+const API       = "https://nju6z5l8hh.execute-api.ap-south-1.amazonaws.com";
+const REDIRECT  = window.location.origin + window.location.pathname;
+
+const $ = id => document.getElementById(id);
+let idToken = null;
+
+/* ---------- auth ---------- */
+  const paSession = PA.require("students");
+  if (!paSession) throw new Error("redirecting");
+  idToken = paSession.token;
+  PA.mountNav("nav", "who", paSession);
+
+const api = p => fetch(`${API}${p}`, { headers:{ Authorization:`Bearer ${idToken}` } }).then(r => r.json());
+const esc = s => String(s ?? "").replace(/[&<>"]/g, c => ({ "&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;" }[c]));
+
+/* ---------- load ---------- */
+(async () => {
+  try {
+    const d = await api("/exams");
+    if (d.error){
+      $("list").innerHTML = `<div class="empty"><b>${esc(d.error)}</b></div>`;
+      return;
+    }
+    if (!d.exams.length){
+      $("list").innerHTML = `<div class="empty"><b>Nothing scheduled</b>`
+        + `When your instructor publishes an exam and adds your email, it will show up here.</div>`;
+      return;
+    }
+
+    $("list").innerHTML = d.exams.map(e => {
+      const left = Math.max(0, (e.max_attempts || 1) - (e.attempts_used || 0));
+      const live = !!e.active_session;
+      const done = e.submitted && !live;
+
+      let badge, actions;
+      if (live){
+        badge = `<span class="badge b-live">in progress</span>`;
+        actions = `<a class="btn primary" href="exam.html?exam=${encodeURIComponent(e.exam_id)}">Resume exam</a>
+                   <span class="note">You have an unfinished attempt. The clock is still running.</span>`;
+      } else if (done && left <= 0){
+        badge = `<span class="badge b-done">submitted</span>`;
+        actions = e.result_ready
+          ? `<a class="btn primary" href="result.html?exam=${encodeURIComponent(e.exam_id)}">View result</a>`
+          : `<button disabled>View result</button><span class="note">Results aren't out yet.</span>`;
+      } else if (done){
+        badge = `<span class="badge b-done">submitted</span>`;
+        actions = `<a class="btn" href="exam.html?exam=${encodeURIComponent(e.exam_id)}">Start attempt ${(e.attempts_used||0)+1}</a>
+                   <span class="note">${left} of ${e.max_attempts} attempts left.</span>`;
+      } else {
+        badge = `<span class="badge b-open">open</span>`;
+        actions = `<a class="btn primary" href="exam.html?exam=${encodeURIComponent(e.exam_id)}">Start exam</a>
+                   <span class="note">Your camera stays on for the whole exam.</span>`;
+      }
+
+      return `<div class="ex">
+        <div class="ex-head">
+          <h3>${esc(e.title)}</h3>
+          ${badge}
+        </div>
+        ${e.description ? `<p class="ex-desc">${esc(e.description)}</p>` : ""}
+        <div class="facts">
+          <div class="fact"><div class="v">${e.duration_min}</div><div class="k">Minutes</div></div>
+          <div class="fact"><div class="v">${e.question_count}</div><div class="k">Questions</div></div>
+          <div class="fact"><div class="v">${e.total_marks}</div><div class="k">Marks</div></div>
+          <div class="fact"><div class="v">${e.attempts_used || 0}/${e.max_attempts}</div><div class="k">Attempts</div></div>
+        </div>
+        <div class="actions">${actions}</div>
+      </div>`;
+    }).join("");
+
+    // enrolment check — probe with the first startable exam
+    const startable = d.exams.find(e => !e.submitted || e.active_session);
+    if (startable){
+      const probe = await fetch(`${API}/session/start`, {
+        method:"POST",
+        headers:{ "Content-Type":"application/json", Authorization:`Bearer ${idToken}` },
+        body:JSON.stringify({ exam_id:"__enrolment_probe__" })
+      }).then(r => r.json()).catch(() => ({}));
+      // a 404 here means enrolment is fine; needs_enrolment only comes from a real exam
+    }
+
+  } catch (e) {
+    $("msg").innerHTML = `<div class="err">Couldn't load your exams: ${esc(e.message)}</div>`;
+  }
+})();
+</script>
+</body>
+</html>

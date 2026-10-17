@@ -1,0 +1,434 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>ProctorAI — Invigilation Console</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Archivo:wght@500;600;700&family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+:root{
+  --surface:#FBFCFD; --panel:#FFFFFF; --ink:#16202B; --muted:#66788A;
+  --line:#E3E9EF; --line-soft:#EFF3F7; --slate:#2D4A63;
+  --calm:#167C55; --calm-bg:#E8F4EE;
+  --watch:#B26A00; --watch-bg:#FBF1E0;
+  --alert:#C3352B; --alert-bg:#FBEBEA;
+  --r:10px;
+}
+*{box-sizing:border-box}
+body{
+  margin:0; background:var(--surface); color:var(--ink);
+  font-family:"IBM Plex Sans",system-ui,sans-serif; font-size:14px; line-height:1.5;
+}
+.num{font-family:"IBM Plex Mono",monospace; font-variant-numeric:tabular-nums}
+.wrap{max-width:1240px; margin:0 auto; padding:0 28px 64px}
+
+/* header */
+header{border-bottom:1px solid var(--line); background:var(--panel); position:sticky; top:0; z-index:5}
+.hbar{max-width:1240px; margin:0 auto; padding:16px 28px; display:flex; align-items:center; gap:16px}
+.mark{font-family:"Archivo",sans-serif; font-weight:700; font-size:17px; letter-spacing:-.02em}
+.mark span{color:var(--muted); font-weight:500}
+.divider{width:1px; height:20px; background:var(--line)}
+.exam{color:var(--muted); font-size:13px}
+.live{margin-left:auto; display:flex; align-items:center; gap:7px; font-size:12px; color:var(--muted)}
+.pulse{width:7px; height:7px; border-radius:50%; background:var(--calm); animation:breathe 2.4s ease-in-out infinite}
+@keyframes breathe{0%,100%{opacity:1}50%{opacity:.25}}
+.whoami{font-size:12px; color:var(--muted); border-left:1px solid var(--line); padding-left:16px}
+
+/* ledger — the signature */
+.ledger{
+  background:var(--panel); border:1px solid var(--line); border-radius:var(--r);
+  padding:26px 28px; margin-top:28px;
+}
+.eyebrow{
+  font-size:11px; letter-spacing:.09em; text-transform:uppercase;
+  color:var(--muted); font-weight:600; margin:0 0 14px;
+}
+.ledger-head{display:flex; align-items:baseline; gap:14px; flex-wrap:wrap}
+.big{font-family:"Archivo",sans-serif; font-size:52px; font-weight:700; letter-spacing:-.03em; line-height:1}
+.big-unit{font-size:15px; color:var(--muted); font-weight:500}
+.bar{
+  height:38px; margin:20px 0 10px; display:flex; border-radius:6px; overflow:hidden;
+  border:1px solid var(--line); background:var(--line-soft);
+}
+.seg{position:relative; transition:width .5s cubic-bezier(.4,0,.2,1)}
+.seg-local{
+  background:var(--calm-bg);
+  background-image:repeating-linear-gradient(90deg,transparent 0 5px,rgba(22,124,85,.16) 5px 6px);
+}
+.seg-aws{
+  background:var(--alert-bg);
+  background-image:repeating-linear-gradient(90deg,transparent 0 5px,rgba(195,53,43,.3) 5px 6px);
+}
+.legend{display:flex; gap:24px; font-size:12.5px; color:var(--muted); flex-wrap:wrap}
+.legend b{color:var(--ink); font-weight:600}
+.key{display:inline-block; width:9px; height:9px; border-radius:2px; margin-right:7px; vertical-align:baseline}
+
+/* grid */
+.grid{display:grid; grid-template-columns:1fr 1fr; gap:20px; margin-top:20px; align-items:start}
+.panel{background:var(--panel); border:1px solid var(--line); border-radius:var(--r); overflow:hidden}
+.panel-head{padding:16px 20px 12px; border-bottom:1px solid var(--line-soft); display:flex; align-items:baseline; gap:10px}
+.panel-head h2{margin:0; font-family:"Archivo",sans-serif; font-size:14px; font-weight:600; letter-spacing:-.01em}
+.hint{font-size:12px; color:var(--muted); margin-left:auto}
+
+/* roster */
+table{width:100%; border-collapse:collapse}
+th{
+  text-align:left; padding:9px 20px; font-size:10.5px; letter-spacing:.07em;
+  text-transform:uppercase; color:var(--muted); font-weight:600; border-bottom:1px solid var(--line-soft);
+}
+td{padding:12px 20px; border-bottom:1px solid var(--line-soft); font-size:13.5px}
+tbody tr{cursor:pointer; transition:background .12s}
+tbody tr:hover{background:var(--surface)}
+tbody tr.sel{background:#F3F7FB; box-shadow:inset 3px 0 0 var(--slate)}
+.who{display:flex; flex-direction:column; gap:1px}
+.who b{font-weight:600}
+.who small{color:var(--muted); font-size:11px; font-family:"IBM Plex Mono",monospace}
+.badge{
+  display:inline-flex; align-items:center; gap:6px; padding:3px 9px; border-radius:20px;
+  font-size:12px; font-weight:600; font-family:"IBM Plex Mono",monospace;
+}
+.b-calm{background:var(--calm-bg); color:var(--calm)}
+.b-watch{background:var(--watch-bg); color:var(--watch)}
+.b-alert{background:var(--alert-bg); color:var(--alert)}
+.spark{display:block}
+.tag{font-size:11px; color:var(--muted); text-transform:uppercase; letter-spacing:.05em}
+.tag.on{color:var(--calm)}
+
+/* detail */
+.stats{display:flex; gap:0; border-bottom:1px solid var(--line-soft)}
+.stat{flex:1; padding:14px 20px; border-right:1px solid var(--line-soft)}
+.stat:last-child{border-right:0}
+.stat .v{font-family:"IBM Plex Mono",monospace; font-size:19px; font-weight:600}
+.stat .k{font-size:11px; color:var(--muted); text-transform:uppercase; letter-spacing:.06em; margin-top:2px}
+#chart{width:100%; height:180px; display:block}
+.chart-wrap{padding:16px 20px 8px}
+
+/* flags */
+.flag{display:flex; gap:14px; padding:14px 20px; border-bottom:1px solid var(--line-soft)}
+.flag:last-child{border-bottom:0}
+.flag img{width:120px; height:90px; object-fit:cover; border-radius:6px; background:var(--line-soft); border:1px solid var(--line)}
+.noclip{
+  width:120px; height:90px; border-radius:6px; background:var(--line-soft);
+  display:flex; align-items:center; justify-content:center; font-size:11px; color:var(--muted);
+}
+.flag-body{flex:1; min-width:0}
+.flag-title{display:flex; align-items:center; gap:9px; flex-wrap:wrap}
+.flag-title b{font-size:13.5px; font-weight:600}
+.when{font-size:11.5px; color:var(--muted); font-family:"IBM Plex Mono",monospace; margin-top:3px}
+.rev{margin-top:7px; font-size:12.5px; color:var(--calm); display:flex; align-items:center; gap:6px}
+.actions{margin-top:9px; display:flex; gap:7px; flex-wrap:wrap}
+input[type=text]{
+  flex:1; min-width:140px; padding:6px 10px; font-size:12.5px; font-family:inherit;
+  border:1px solid var(--line); border-radius:6px; background:var(--surface); color:var(--ink);
+}
+input[type=text]:focus{outline:2px solid var(--slate); outline-offset:-1px; border-color:transparent}
+button{
+  padding:6px 13px; font-size:12.5px; font-family:inherit; font-weight:500; cursor:pointer;
+  border-radius:6px; border:1px solid var(--line); background:var(--panel); color:var(--ink);
+  transition:background .12s, border-color .12s;
+}
+button:hover{background:var(--surface); border-color:var(--muted)}
+button.primary{background:var(--slate); border-color:var(--slate); color:#fff}
+button.primary:hover{background:#22384B}
+button:focus-visible, tbody tr:focus-visible{outline:2px solid var(--slate); outline-offset:2px}
+
+.danger-btn{margin-left:auto;padding:5px 12px;font-size:12.5px;font-family:inherit;font-weight:500;
+  cursor:pointer;border-radius:6px;border:1px solid var(--alert);background:var(--panel);color:var(--alert)}
+.danger-btn:hover:not(:disabled){background:var(--alert-bg)}
+.danger-btn:disabled{opacity:.35;cursor:not-allowed;border-color:var(--line);color:var(--muted)}
+.empty{padding:34px 20px; text-align:center; color:var(--muted); font-size:13px}
+.empty b{display:block; color:var(--ink); font-weight:600; margin-bottom:4px; font-size:14px}
+
+@media (max-width:920px){ .grid{grid-template-columns:1fr} .big{font-size:40px} }
+@media (prefers-reduced-motion:reduce){ *{animation:none!important; transition:none!important} }
+.nav{display:flex;gap:4px;margin-left:6px}
+.nav a{padding:5px 11px;border-radius:6px;font-size:13px;color:var(--muted);text-decoration:none}
+.nav a:hover{background:var(--surface);color:var(--ink)}
+.nav a.on{background:var(--surface);color:var(--ink);font-weight:600}
+</style>
+</head>
+<body>
+
+<header>
+  <div class="hbar">
+    <div class="mark">ProctorAI <span>/ console</span></div>
+    <nav class="nav" id="nav"></nav>
+    <div class="divider"></div>
+    <div class="exam">Cloud Architecture Midterm</div>
+    <div class="live"><span class="pulse"></span> Refreshing every 5s</div>
+    <div class="whoami" id="who">—</div>
+  </div>
+</header>
+
+<div class="wrap">
+
+  <section class="ledger">
+    <p class="eyebrow">Frame ledger</p>
+    <div class="ledger-head">
+      <div class="big num" id="lBig">—</div>
+      <div class="big-unit" id="lCaption">Waiting for session data</div>
+    </div>
+    <div class="bar">
+      <div class="seg seg-local" id="segLocal" style="width:100%"></div>
+      <div class="seg seg-aws" id="segAws" style="width:0%"></div>
+    </div>
+    <div class="legend">
+      <span><i class="key" style="background:var(--calm)"></i>Cleared in the browser · <b class="num" id="lLocal">0</b></span>
+      <span><i class="key" style="background:var(--alert)"></i>Sent to Rekognition · <b class="num" id="lAws">0</b></span>
+      <span>Billed this exam · <b class="num" id="lCost">$0.0000</b></span>
+    </div>
+  </section>
+
+  <div class="grid">
+
+    <section class="panel">
+      <div class="panel-head">
+        <h2>Live roster</h2>
+        <span class="hint">Sorted by risk · click a row</span>
+      </div>
+      <table>
+        <thead><tr><th>Student</th><th>Risk</th><th>Trend</th><th>Frames</th><th>Flags</th></tr></thead>
+        <tbody id="roster"><tr><td colspan="5" class="empty">Loading roster…</td></tr></tbody>
+      </table>
+    </section>
+
+    <section class="panel" id="detail" style="display:none">
+      <div class="panel-head">
+        <h2 id="dName">Session detail</h2>
+        <span class="hint" id="dId"></span>
+        <button class="danger-btn" id="endBtn" onclick="forceEnd()">End session</button>
+      </div>
+      <div class="stats">
+        <div class="stat"><div class="v num" id="dRisk">—</div><div class="k">Peak risk</div></div>
+        <div class="stat"><div class="v num" id="dFrames">—</div><div class="k">Frames</div></div>
+        <div class="stat"><div class="v num" id="dRekog">—</div><div class="k">Rekognition</div></div>
+        <div class="stat"><div class="v num" id="dFlags">—</div><div class="k">Flags</div></div>
+      </div>
+      <div class="chart-wrap">
+        <p class="eyebrow" style="margin-bottom:8px">Risk over time</p>
+        <svg id="chart" viewBox="0 0 760 180" preserveAspectRatio="none" role="img" aria-label="Risk score timeline"></svg>
+      </div>
+      <div class="panel-head" style="border-top:1px solid var(--line-soft)">
+        <h2>Flagged moments</h2>
+        <span class="hint">Clips expire after 15 min</span>
+      </div>
+      <div id="flags"></div>
+    </section>
+
+    <section class="panel" id="placeholder">
+      <div class="empty" style="padding:64px 20px">
+        <b>No session selected</b>
+        Pick a student from the roster to see their risk timeline and flagged moments.
+      </div>
+    </section>
+
+  </div>
+</div>
+
+<script src="pa.js"></script>
+<script>
+const DOMAIN    = "https://ap-south-1yx4st7fyc.auth.ap-south-1.amazoncognito.com";
+const CLIENT_ID = "4aeuraag6jvio5kp81i32sjll5";
+const API       = "https://nju6z5l8hh.execute-api.ap-south-1.amazonaws.com";
+const REDIRECT  = window.location.origin + window.location.pathname;
+const THRESHOLD = 0.5;
+
+const $ = id => document.getElementById(id);
+let selected = null;
+const trends = {};                       // session_id -> recent risk values
+
+/* ---------- auth ---------- */
+  const paSession = PA.require("proctors");
+  if (!paSession) throw new Error("redirecting");
+  let idToken = paSession.token;
+  PA.mountNav("nav", "who", paSession);
+
+const api  = p => fetch(`${API}${p}`, { headers:{ Authorization:`Bearer ${idToken}` } }).then(r => r.json());
+const post = (p,b) => fetch(`${API}${p}`, {
+  method:"POST",
+  headers:{ "Content-Type":"application/json", Authorization:`Bearer ${idToken}` },
+  body:JSON.stringify(b)
+}).then(r => r.json());
+
+/* ---------- helpers ---------- */
+const band = r => r >= THRESHOLD ? "alert" : r >= 0.3 ? "watch" : "calm";
+const bandColor = r => r >= THRESHOLD ? "var(--alert)" : r >= 0.3 ? "var(--watch)" : "var(--calm)";
+
+function sparkline(vals){
+  if (!vals || vals.length < 2) return `<span class="tag">—</span>`;
+  const W = 72, H = 20, n = vals.length;
+  const pts = vals.map((v,i) =>
+    `${(i/(n-1)*W).toFixed(1)},${(H - Math.min(v,1)*H).toFixed(1)}`).join(" ");
+  const last = vals[vals.length-1];
+  return `<svg class="spark" width="${W}" height="${H}" viewBox="0 0 ${W} ${H}" aria-hidden="true">
+    <polyline points="${pts}" fill="none" stroke="${bandColor(last)}" stroke-width="1.5"
+      stroke-linejoin="round" stroke-linecap="round" opacity=".85"/>
+  </svg>`;
+}
+
+/* ---------- roster + ledger ---------- */
+async function loadRoster(){
+  try {
+    const d = await api("/roster?exam_id=exam-001");
+    if (d.error) { $("roster").innerHTML = `<tr><td colspan="5" class="empty"><b>${d.error}</b>Sign in with a proctor account.</td></tr>`; return; }
+
+    const t = d.totals;
+    const aws = t.rekognition_calls, local = t.frames_checked - aws;
+    const pct = t.frames_checked ? (aws / t.frames_checked * 100) : 0;
+
+    $("lBig").textContent = t.savings_pct + "%";
+    $("lCaption").textContent = t.frames_checked
+      ? `of ${t.frames_checked} frames never left the browser`
+      : "Waiting for session data";
+    $("segLocal").style.width = (100 - pct) + "%";
+    $("segAws").style.width = pct + "%";
+    $("lLocal").textContent = local;
+    $("lAws").textContent = aws;
+    $("lCost").textContent = "$" + (aws * 0.001).toFixed(4);
+
+    if (!d.sessions.length){
+      $("roster").innerHTML = `<tr><td colspan="5" class="empty"><b>No sessions yet</b>Start an exam session to see students here.</td></tr>`;
+      return;
+    }
+
+    window.__lastRoster = d.sessions;
+    $("roster").innerHTML = d.sessions.map(s => {
+      const r = Number(s.risk || 0);
+      const hist = trends[s.session_id] || (trends[s.session_id] = []);
+      if (hist[hist.length-1] !== r) hist.push(r);
+      if (hist.length > 24) hist.shift();
+      return `<tr tabindex="0" class="${s.session_id===selected?"sel":""}"
+          onclick="select('${s.session_id}','${s.name.replace(/'/g,"")}')"
+          onkeydown="if(event.key==='Enter')select('${s.session_id}','${s.name.replace(/'/g,"")}')">
+        <td><div class="who"><b>${s.name}</b><small>${s.session_id.slice(0,8)}</small></div></td>
+        <td><span class="badge b-${band(r)}">${r.toFixed(3)}</span></td>
+        <td>${sparkline(hist)}</td>
+        <td class="num">${s.frames_checked}</td>
+        <td class="num">${s.flag_count || 0}</td>
+      </tr>`;
+    }).join("");
+
+    if (selected){
+      const s = d.sessions.find(x => x.session_id === selected);
+      if (s){
+        $("dRisk").textContent   = Number(s.risk||0).toFixed(3);
+        $("dFrames").textContent = s.frames_checked;
+        $("dRekog").textContent  = s.rekognition_calls;
+        $("dFlags").textContent  = s.flag_count || 0;
+      }
+    }
+  } catch (e) {
+    $("roster").innerHTML = `<tr><td colspan="5" class="empty"><b>Couldn't reach the API</b>${e.message}</td></tr>`;
+  }
+}
+
+/* ---------- detail ---------- */
+async function forceEnd(){
+  if (!selected) return;
+  const reason = prompt("Why are you ending this session?", "Ended by proctor");
+  if (reason === null) return;
+  const r = await post("/end", { session_id: selected, reason });
+  if (r.error){ alert(r.error); return; }
+  $("endBtn").disabled = true;
+  $("endBtn").textContent = "Session ended";
+  loadRoster();
+}
+
+async function select(sid, name){
+  selected = sid;
+  $("placeholder").style.display = "none";
+  $("detail").style.display = "block";
+  $("dName").textContent = name;
+  $("dId").textContent = sid.slice(0,8);
+  const row = (window.__lastRoster || []).find(x => x.session_id === sid);
+  const live = !row || row.status === "active";
+  $("endBtn").disabled = !live;
+  $("endBtn").textContent = live ? "End session" : "Session ended";
+  loadTimeline(sid);
+  loadFlags(sid);
+  loadRoster();
+}
+
+async function loadTimeline(sid){
+  const d = await api(`/timeline?session_id=${sid}`);
+  const pts = d.points || [];
+  const svg = $("chart");
+  if (!pts.length){
+    svg.innerHTML = `<text x="12" y="26" font-size="12" fill="#66788A" font-family="IBM Plex Sans">No scores recorded yet</text>`;
+    return;
+  }
+  const W=760, H=180, pl=34, pr=10, pt=12, pb=20;
+  const n=pts.length;
+  const x = i => pl + (i/Math.max(n-1,1))*(W-pl-pr);
+  const y = v => H - pb - Math.min(v,1)*(H-pt-pb);
+
+  const line = pts.map((p,i)=>`${i?"L":"M"}${x(i).toFixed(1)},${y(p.composite_score).toFixed(1)}`).join(" ");
+  const area = `${line} L${x(n-1).toFixed(1)},${y(0)} L${x(0).toFixed(1)},${y(0)} Z`;
+  const dots = pts.map((p,i)=>{
+    const r = p.rekognition_used ? 3.6 : 2;
+    return `<circle cx="${x(i).toFixed(1)}" cy="${y(p.composite_score).toFixed(1)}" r="${r}"
+      fill="${p.rekognition_used ? "var(--alert)" : bandColor(p.composite_score)}"
+      stroke="#fff" stroke-width="${p.rekognition_used?1.2:0}">
+      <title>${p.reason} — ${p.composite_score}${p.rekognition_used?" (Rekognition)":""}</title></circle>`;
+  }).join("");
+
+  svg.innerHTML = `
+    <defs><linearGradient id="fade" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#2D4A63" stop-opacity=".14"/>
+      <stop offset="100%" stop-color="#2D4A63" stop-opacity="0"/>
+    </linearGradient></defs>
+    <rect x="${pl}" y="${pt}" width="${W-pl-pr}" height="${y(THRESHOLD)-pt}" fill="#C3352B" opacity=".045"/>
+    <line x1="${pl}" y1="${y(THRESHOLD)}" x2="${W-pr}" y2="${y(THRESHOLD)}" stroke="#C3352B" stroke-width="1" stroke-dasharray="3 4" opacity=".6"/>
+    <text x="${W-pr}" y="${y(THRESHOLD)-6}" font-size="10" fill="#C3352B" text-anchor="end" font-family="IBM Plex Mono">threshold ${THRESHOLD}</text>
+    <line x1="${pl}" y1="${y(0)}" x2="${W-pr}" y2="${y(0)}" stroke="#E3E9EF"/>
+    <path d="${area}" fill="url(#fade)"/>
+    <path d="${line}" fill="none" stroke="#2D4A63" stroke-width="1.6" stroke-linejoin="round"/>
+    ${dots}
+    <text x="6" y="${y(1)+4}" font-size="10" fill="#66788A" font-family="IBM Plex Mono">1.0</text>
+    <text x="6" y="${y(0)+4}" font-size="10" fill="#66788A" font-family="IBM Plex Mono">0.0</text>`;
+}
+
+async function loadFlags(sid){
+  const d = await api(`/flags?session_id=${sid}`);
+  const flags = d.flags || [];
+  if (!flags.length){
+    $("flags").innerHTML = `<div class="empty"><b>Nothing flagged</b>This session stayed below the threshold.</div>`;
+    return;
+  }
+  $("flags").innerHTML = flags.map(f => `
+    <div class="flag">
+      ${f.clip_signed_url
+        ? `<img src="${f.clip_signed_url}" alt="Frame captured when flagged">`
+        : `<div class="noclip">no clip</div>`}
+      <div class="flag-body">
+        <div class="flag-title">
+          <b>${f.event_type.replace(/_/g," ")}</b>
+          <span class="badge b-${band(Number(f.score))}">${Number(f.score).toFixed(3)}</span>
+        </div>
+        <div class="when">${new Date(Number(f.timestamp)).toLocaleString()}</div>
+        ${f.reviewed
+          ? `<div class="rev">Reviewed — ${f.reviewer_notes || "no notes"}</div>`
+          : `<div class="actions">
+               <input type="text" id="n_${f.timestamp}" placeholder="Add a note">
+               <button class="primary" onclick="review('${f.session_id}',${f.timestamp},true)">Confirm</button>
+               <button onclick="review('${f.session_id}',${f.timestamp},false)">Dismiss</button>
+             </div>`}
+      </div>
+    </div>`).join("");
+}
+
+async function review(sid, ts, confirmed){
+  const el = $(`n_${ts}`);
+  const notes = (el && el.value) || (confirmed ? "Confirmed violation" : "Dismissed as false positive");
+  await post("/review", { session_id:sid, timestamp:ts, reviewed:true, notes });
+  loadFlags(sid);
+}
+
+loadRoster();
+setInterval(loadRoster, 5000);
+setInterval(() => { if (selected){ loadTimeline(selected); loadFlags(selected); } }, 8000);
+</script>
+</body>
+</html>

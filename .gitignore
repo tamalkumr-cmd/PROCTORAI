@@ -1,0 +1,24 @@
+# build artefacts
+*.zip
+__pycache__/
+*.pyc
+
+# local test / CLI output
+out.json
+output.log
+response.json
+t-*.json
+dc.json
+
+# credentials — never commit
+*.csv
+*credentials*
+.env
+.aws/
+
+# editor / OS
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+EOF

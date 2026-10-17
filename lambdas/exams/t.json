@@ -1,0 +1,1 @@
+{"rawPath":"/exams","requestContext":{"http":{"method":"GET"},"authorizer":{"jwt":{"claims":{"sub":"test","email":"x@y.com","cognito:groups":"[proctors]"}}}}}

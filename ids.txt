@@ -1,0 +1,10 @@
+API_ID=nju6z5l8hh
+AUTH_ID=1ox27c
+INTEG_ID=uh16sfh
+API_ENDPOINT=https://nju6z5l8hh.execute-api.ap-south-1.amazonaws.com
+POOL_ID=ap-south-1_YX4ST7FyC
+CLIENT_ID=4aeuraag6jvio5kp81i32sjll5
+COGNITO_DOMAIN=https://ap-south-1yx4st7fyc.auth.ap-south-1.amazoncognito.com
+LAMBDA_ROLE=arn:aws:iam::582093723182:role/proctorai-lambda-role
+MEDIA_BUCKET=proctorai-media-tamal
+COLLECTION=proctorai-faces

@@ -1,0 +1,324 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>ProctorAI — Enrolment</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Archivo:wght@500;600;700&family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/@vladmandic/face-api/dist/face-api.js"></script>
+<style>
+:root{--surface:#FBFCFD;--panel:#FFFFFF;--ink:#16202B;--muted:#66788A;--line:#E3E9EF;--line-soft:#EFF3F7;
+  --slate:#2D4A63;--calm:#167C55;--calm-bg:#E8F4EE;--watch:#B26A00;--watch-bg:#FBF1E0;--alert:#C3352B;--alert-bg:#FBEBEA;--r:10px}
+*{box-sizing:border-box}
+body{margin:0;background:var(--surface);color:var(--ink);font-family:"IBM Plex Sans",system-ui,sans-serif;font-size:14px;line-height:1.5}
+.num{font-family:"IBM Plex Mono",monospace}
+.wrap{max-width:880px;margin:0 auto;padding:0 28px 72px}
+header{border-bottom:1px solid var(--line);background:var(--panel)}
+.hbar{max-width:880px;margin:0 auto;padding:16px 28px;display:flex;align-items:center;gap:16px;flex-wrap:wrap}
+.mark{font-family:"Archivo",sans-serif;font-weight:700;font-size:17px;letter-spacing:-.02em}
+.mark span{color:var(--muted);font-weight:500}
+.nav{display:flex;gap:4px;margin-left:6px}
+.nav a{padding:5px 11px;border-radius:6px;font-size:13px;color:var(--muted);text-decoration:none}
+.nav a:hover{background:var(--surface);color:var(--ink)}
+.nav a.on{background:var(--surface);color:var(--ink);font-weight:600}
+.whoami{margin-left:auto;font-size:12px;color:var(--muted)}
+
+.intro{padding:34px 0 4px}
+.intro h1{font-family:"Archivo",sans-serif;font-size:27px;letter-spacing:-.025em;margin:0 0 8px}
+.intro p{color:var(--muted);margin:0;max-width:62ch}
+.rail{display:flex;margin:24px 0 20px}
+.rs{flex:1;padding-top:11px;border-top:3px solid var(--line);transition:border-color .3s}
+.rs.active{border-color:var(--slate)} .rs.done{border-color:var(--calm)}
+.rn{font-family:"IBM Plex Mono",monospace;font-size:11px;color:var(--muted);letter-spacing:.06em}
+.rl{font-size:12.5px;font-weight:600;margin-top:1px}
+.rs.done .rn,.rs.done .rl{color:var(--calm)}
+
+.panel{background:var(--panel);border:1px solid var(--line);border-radius:var(--r);padding:22px;margin-bottom:16px}
+.eyebrow{font-size:11px;letter-spacing:.09em;text-transform:uppercase;color:var(--muted);font-weight:600;margin:0 0 10px}
+.panel h2{font-family:"Archivo",sans-serif;font-size:16px;font-weight:600;letter-spacing:-.01em;margin:0 0 6px}
+.lede{color:var(--muted);margin:0 0 16px;font-size:13.5px}
+
+.cap{display:grid;grid-template-columns:1fr 1fr;gap:20px;align-items:start}
+.stage{position:relative}
+video{width:100%;aspect-ratio:4/3;border-radius:9px;background:#0E1620;object-fit:cover;display:block;transform:scaleX(-1)}
+.frame{position:absolute;inset:0;border-radius:9px;pointer-events:none;box-shadow:inset 0 0 0 2px transparent;transition:box-shadow .25s}
+.frame.good{box-shadow:inset 0 0 0 3px var(--calm)}
+.frame.bad{box-shadow:inset 0 0 0 3px var(--watch)}
+.prompt{margin-top:12px;padding:12px 14px;border-radius:8px;background:var(--surface);border:1px solid var(--line)}
+.prompt b{font-family:"Archivo",sans-serif;font-size:15px;display:block;margin-bottom:2px}
+.prompt span{color:var(--muted);font-size:13px}
+.live{margin-top:8px;font-size:12.5px;min-height:19px}
+
+.slots{display:flex;flex-direction:column;gap:10px}
+.slot{display:flex;gap:12px;align-items:center;padding:10px;border:1px solid var(--line);border-radius:9px;background:var(--surface);transition:.15s}
+.slot.cur{border-color:var(--slate);box-shadow:inset 0 0 0 1px var(--slate);background:var(--panel)}
+.slot.ok{border-color:#CDE6D9;background:var(--calm-bg)}
+.thumb{width:84px;aspect-ratio:4/3;border-radius:6px;background:var(--line-soft);object-fit:cover;flex-shrink:0;
+  display:flex;align-items:center;justify-content:center;font-family:"IBM Plex Mono",monospace;font-size:11px;color:var(--muted);transform:scaleX(-1)}
+.thumb-ph{transform:none}
+.slot .t{flex:1;min-width:0}
+.slot .t b{display:block;font-size:13.5px}
+.slot .t small{color:var(--muted);font-size:12px}
+.slot.ok .t small{color:var(--calm)}
+.btnrow{display:flex;gap:8px;flex-wrap:wrap;margin-top:14px}
+
+button{padding:9px 17px;font-size:13.5px;font-family:inherit;font-weight:500;cursor:pointer;border-radius:7px;
+  border:1px solid var(--line);background:var(--panel);color:var(--ink);transition:.12s}
+button:hover:not(:disabled){border-color:var(--muted)}
+button:disabled{opacity:.4;cursor:not-allowed}
+button.primary{background:var(--slate);border-color:var(--slate);color:#fff}
+button.primary:hover:not(:disabled){background:#22384B}
+button.sm{padding:4px 10px;font-size:12px}
+button:focus-visible,textarea:focus-visible{outline:2px solid var(--slate);outline-offset:2px}
+
+.pr{font-family:"IBM Plex Mono",monospace;font-size:14px;padding:12px 14px;background:var(--surface);border:1px solid var(--line);border-radius:7px;margin-bottom:12px;color:var(--slate)}
+textarea{width:100%;min-height:92px;padding:12px 14px;font-family:inherit;font-size:15px;line-height:1.6;border:1px solid var(--line);border-radius:8px;background:var(--surface);color:var(--ink);resize:vertical}
+textarea:focus{outline:2px solid var(--slate);outline-offset:-1px;border-color:transparent;background:var(--panel)}
+.meter{margin-top:10px;height:5px;border-radius:3px;background:var(--line-soft);overflow:hidden}
+.meter i{display:block;height:100%;width:0;background:var(--slate);transition:width .25s,background .25s}
+.meter i.full{background:var(--calm)}
+.ml{display:flex;justify-content:space-between;margin-top:6px;font-size:12px;color:var(--muted)}
+
+.ok-msg{background:var(--calm-bg);color:var(--calm);padding:11px 13px;border-radius:7px;font-size:13px;margin-top:12px}
+.err{background:var(--alert-bg);color:var(--alert);padding:11px 13px;border-radius:7px;font-size:13px;margin-top:12px}
+.done{padding:30px 26px}
+.done h2{font-size:21px;margin-bottom:8px}
+.kv{display:flex;justify-content:space-between;padding:9px 0;border-bottom:1px solid var(--line-soft);font-size:13.5px}
+.kv:last-of-type{border-bottom:0}
+.kv span{color:var(--muted)}
+.kv b{font-family:"IBM Plex Mono",monospace}
+.hidden{display:none}
+@media (max-width:760px){.cap{grid-template-columns:1fr}}
+@media (prefers-reduced-motion:reduce){*{transition:none!important}}
+</style>
+</head>
+<body>
+<header>
+  <div class="hbar">
+    <div class="mark">ProctorAI <span>/ enrolment</span></div>
+    <nav class="nav" id="nav"></nav>
+    <div class="whoami" id="who"></div>
+  </div>
+</header>
+
+<div class="wrap">
+  <div id="app">
+    <div class="intro">
+      <h1>Set up your exam profile</h1>
+      <p>Three photos from different angles and a short typing sample. Different angles let the system recognise you while you look down to write, so you get fewer false alerts during the exam.</p>
+    </div>
+
+    <div class="rail">
+      <div class="rs active" id="r1"><div class="rn">01</div><div class="rl">Three photos</div></div>
+      <div class="rs" id="r2"><div class="rn">02</div><div class="rl">Typing sample</div></div>
+      <div class="rs" id="r3"><div class="rn">03</div><div class="rl">Submit</div></div>
+    </div>
+
+    <div class="panel">
+      <p class="eyebrow">Step one</p>
+      <h2>Reference photos</h2>
+      <p class="lede">Each photo is checked on your device first. It's only accepted when exactly one face is visible.</p>
+      <div class="cap">
+        <div class="stage">
+          <video id="video" autoplay playsinline muted></video>
+          <div class="frame" id="frame"></div>
+          <canvas id="canvas" class="hidden"></canvas>
+          <div class="prompt" id="prompt"><b>Turn on your camera</b><span>Sit in good light, facing a window or lamp.</span></div>
+          <div class="live" id="live"></div>
+          <div class="btnrow">
+            <button id="camBtn">Turn on camera</button>
+            <button class="primary" id="capBtn" disabled>Take photo</button>
+          </div>
+        </div>
+        <div class="slots" id="slots"></div>
+      </div>
+    </div>
+
+    <div class="panel">
+      <p class="eyebrow">Step two</p>
+      <h2>Typing sample</h2>
+      <p class="lede">Type the line the way you normally type. We measure rhythm, not what you write.</p>
+      <div class="pr">the quick brown fox jumps over the lazy dog</div>
+      <textarea id="typing" placeholder="Type the line here…"></textarea>
+      <div class="meter"><i id="meterBar"></i></div>
+      <div class="ml"><span id="meterText">0 of 20 keystrokes</span><span>20 needed</span></div>
+    </div>
+
+    <div class="panel">
+      <p class="eyebrow">Step three</p>
+      <h2>Submit your profile</h2>
+      <p class="lede">Your photos are indexed for face matching and your typing baseline is calculated. Enrolling again replaces your old profile.</p>
+      <button class="primary" id="submitBtn" disabled>Complete enrolment</button>
+      <div id="result"></div>
+    </div>
+  </div>
+
+  <div class="panel done hidden" id="doneCard">
+    <h2>You're enrolled</h2>
+    <p class="lede">Your profile is ready. You can start your exam now.</p>
+    <div id="doneRows"></div>
+    <p style="margin-top:18px"><a href="student.html"><button class="primary">Go to my exams</button></a></p>
+  </div>
+</div>
+
+<script src="pa.js"></script>
+<script>
+const paSession = PA.require("students");
+if (!paSession) throw new Error("redirecting");
+PA.mountNav("nav", "who", paSession);
+const idToken = paSession.token;
+
+const MODELS = "https://cdn.jsdelivr.net/npm/@vladmandic/face-api/model";
+const MIN_KEYS = 20;
+const ANGLES = [
+  { key:"front", title:"Look straight at the camera", hint:"Face centred, eyes on the lens." },
+  { key:"left",  title:"Turn your head slightly left", hint:"About a quarter turn. Keep both eyes visible." },
+  { key:"down",  title:"Look down at your keyboard",   hint:"The way you'd sit while writing an answer." },
+];
+
+const $ = id => document.getElementById(id);
+const esc = s => String(s ?? "").replace(/[&<>"]/g, c => ({ "&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;" }[c]));
+const shots = [null, null, null];
+let current = 0, modelReady = false, liveTimer = null, faceOk = false;
+const keystrokes = [], downMap = {};
+
+faceapi.nets.tinyFaceDetector.loadFromUri(MODELS)
+  .then(() => { modelReady = true; })
+  .catch(() => { $("live").innerHTML = `<span style="color:var(--watch)">Face check unavailable. Photos will be checked on the server instead.</span>`; });
+
+function renderSlots(){
+  $("slots").innerHTML = ANGLES.map((a,i) => `
+    <div class="slot ${shots[i] ? "ok" : ""} ${i===current && !shots[i] ? "cur" : ""}">
+      ${shots[i] ? `<img class="thumb" src="${shots[i]}" alt="${a.key} photo">`
+                 : `<div class="thumb thumb-ph">${String(i+1).padStart(2,"0")}</div>`}
+      <div class="t"><b>${a.title}</b><small>${shots[i] ? "Captured" : (i===current ? "Up next" : "Waiting")}</small></div>
+      ${shots[i] ? `<button class="sm" onclick="retake(${i})">Retake</button>` : ""}
+    </div>`).join("");
+  const a = ANGLES[current];
+  if (current < ANGLES.length){
+    $("prompt").innerHTML = `<b>${a.title}</b><span>${a.hint}</span>`;
+  } else {
+    $("prompt").innerHTML = `<b>All three photos taken</b><span>Retake any of them if they look off.</span>`;
+  }
+  $("capBtn").disabled = current >= ANGLES.length || !$("video").srcObject;
+  const all = shots.every(Boolean);
+  $("r1").classList.toggle("done", all);
+  if (all) $("r2").classList.add("active");
+  checkReady();
+}
+
+$("camBtn").onclick = async () => {
+  try {
+    const stream = await navigator.mediaDevices.getUserMedia({ video:{ width:640, height:480 } });
+    $("video").srcObject = stream;
+    $("camBtn").disabled = true;
+    $("camBtn").textContent = "Camera on";
+    renderSlots();
+    liveTimer = setInterval(liveCheck, 700);
+  } catch (e) {
+    $("live").innerHTML = `<span style="color:var(--alert)">Camera didn't start: ${esc(e.message)}. Allow camera access and try again.</span>`;
+  }
+};
+
+async function faceCount(){
+  const v = $("video");
+  if (!modelReady || !v.videoWidth) return -1;
+  const d = await faceapi.detectAllFaces(v, new faceapi.TinyFaceDetectorOptions({ inputSize:416, scoreThreshold:0.35 }));
+  return d.length;
+}
+
+async function liveCheck(){
+  if (current >= ANGLES.length){ $("frame").className = "frame"; $("live").textContent = ""; return; }
+  const n = await faceCount();
+  if (n === -1){ faceOk = true; return; }
+  faceOk = n === 1;
+  $("frame").className = "frame " + (faceOk ? "good" : "bad");
+  $("live").innerHTML = n === 1 ? `<span style="color:var(--calm)">One face detected — ready</span>`
+    : n === 0 ? `<span style="color:var(--watch)">No face found. Move into the light.</span>`
+    : `<span style="color:var(--watch)">${n} faces visible. Only you should be in frame.</span>`;
+}
+
+$("capBtn").onclick = async () => {
+  if (current >= ANGLES.length) return;
+  const n = await faceCount();
+  if (n !== -1 && n !== 1){
+    $("live").innerHTML = `<span style="color:var(--alert)">Photo not taken — ${n === 0 ? "no face visible" : "more than one face visible"}.</span>`;
+    return;
+  }
+  const v = $("video"), c = $("canvas");
+  c.width = v.videoWidth; c.height = v.videoHeight;
+  c.getContext("2d").drawImage(v, 0, 0);
+  shots[current] = c.toDataURL("image/jpeg", 0.8);
+  current = shots.findIndex(s => !s);
+  if (current === -1){
+    current = ANGLES.length;
+    const st = v.srcObject; if (st) st.getTracks().forEach(t => t.stop());
+    clearInterval(liveTimer);
+    $("frame").className = "frame";
+    $("camBtn").disabled = false; $("camBtn").textContent = "Turn camera back on";
+    v.srcObject = null;
+    $("typing").focus();
+  }
+  renderSlots();
+};
+
+function retake(i){
+  shots[i] = null;
+  current = i;
+  if (!$("video").srcObject) $("camBtn").click();
+  renderSlots();
+}
+
+$("typing").addEventListener("keydown", e => { if (downMap[e.code]===undefined) downMap[e.code] = performance.now(); });
+$("typing").addEventListener("keyup", e => {
+  const d = downMap[e.code]; if (d===undefined) return;
+  delete downMap[e.code];
+  keystrokes.push({ key:e.key, down:d, up:performance.now() });
+  const n = keystrokes.length;
+  $("meterBar").style.width = Math.min(n / MIN_KEYS * 100, 100) + "%";
+  $("meterBar").classList.toggle("full", n >= MIN_KEYS);
+  $("meterText").textContent = n >= MIN_KEYS ? `${n} keystrokes — enough for a baseline` : `${n} of ${MIN_KEYS} keystrokes`;
+  if (n >= MIN_KEYS){ $("r2").classList.add("done"); $("r3").classList.add("active"); }
+  checkReady();
+});
+
+function checkReady(){ $("submitBtn").disabled = !(shots.every(Boolean) && keystrokes.length >= MIN_KEYS); }
+
+$("submitBtn").onclick = async () => {
+  $("submitBtn").disabled = true;
+  $("submitBtn").textContent = "Enrolling…";
+  $("result").innerHTML = "";
+  try {
+    const res = await fetch(`${PA.API}/enroll`, {
+      method:"POST",
+      headers:{ "Content-Type":"application/json", Authorization:`Bearer ${idToken}` },
+      body:JSON.stringify({ images: shots, keystrokes })
+    });
+    const data = await res.json();
+    if (!res.ok){
+      const bad = (data.angles || []).filter(a => !a.ok).map(a => `${a.angle}: ${esc(a.reason)}`).join("<br>");
+      $("result").innerHTML = `<div class="err">${esc(data.error || "Enrolment failed")}${bad ? "<br>"+bad : ""}</div>`;
+      $("submitBtn").disabled = false; $("submitBtn").textContent = "Complete enrolment";
+      return;
+    }
+    $("r3").classList.add("done");
+    $("app").classList.add("hidden");
+    $("doneCard").classList.remove("hidden");
+    const angleRows = (data.angles || []).map(a => `
+      <div class="kv"><span>${a.angle} photo</span>
+        <b style="color:${a.ok ? "var(--calm)" : "var(--watch)"}">${a.ok ? a.confidence + "%" : "skipped"}</b></div>`).join("");
+    $("doneRows").innerHTML = angleRows + `
+      <div class="kv"><span>Reference faces stored</span><b>${data.references}</b></div>
+      <div class="kv"><span>Keystroke samples</span><b>${data.keystroke_samples}</b></div>`;
+  } catch (e) {
+    $("result").innerHTML = `<div class="err">Couldn't reach the server: ${esc(e.message)}</div>`;
+    $("submitBtn").disabled = false; $("submitBtn").textContent = "Complete enrolment";
+  }
+};
+
+renderSlots();
+</script>
+</body>
+</html>

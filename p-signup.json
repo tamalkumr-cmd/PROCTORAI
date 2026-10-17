@@ -1,0 +1,11 @@
+{
+  "Version": "2012-10-17",
+  "Statement": [
+    {"Effect":"Allow","Action":["logs:CreateLogGroup","logs:CreateLogStream","logs:PutLogEvents"],
+     "Resource":"arn:aws:logs:ap-south-1:582093723182:*"},
+    {"Effect":"Allow","Action":["cognito-idp:AdminAddUserToGroup"],
+     "Resource":"arn:aws:cognito-idp:ap-south-1:582093723182:userpool/ap-south-1_YX4ST7FyC"},
+    {"Effect":"Allow","Action":["dynamodb:PutItem"],
+     "Resource":"arn:aws:dynamodb:ap-south-1:582093723182:table/Students"}
+  ]
+}

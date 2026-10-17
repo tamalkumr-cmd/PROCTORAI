@@ -1,0 +1,10 @@
+{
+  "Rules": [
+    {
+      "ID": "expire-staging-1day",
+      "Status": "Enabled",
+      "Filter": { "Prefix": "staging/" },
+      "Expiration": { "Days": 1 }
+    }
+  ]
+}

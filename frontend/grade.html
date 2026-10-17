@@ -1,0 +1,407 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>ProctorAI — Marking</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Archivo:wght@500;600;700&family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+:root{
+  --surface:#FBFCFD; --panel:#FFFFFF; --ink:#16202B; --muted:#66788A;
+  --line:#E3E9EF; --line-soft:#EFF3F7; --slate:#2D4A63;
+  --calm:#167C55; --calm-bg:#E8F4EE;
+  --watch:#B26A00; --watch-bg:#FBF1E0;
+  --alert:#C3352B; --alert-bg:#FBEBEA;
+  --r:10px;
+}
+*{box-sizing:border-box}
+body{margin:0; background:var(--surface); color:var(--ink);
+  font-family:"IBM Plex Sans",system-ui,sans-serif; font-size:14px; line-height:1.5}
+.num{font-family:"IBM Plex Mono",monospace; font-variant-numeric:tabular-nums}
+.wrap{max-width:1300px; margin:0 auto; padding:0 28px 72px}
+
+header{border-bottom:1px solid var(--line); background:var(--panel); position:sticky; top:0; z-index:10}
+.hbar{max-width:1300px; margin:0 auto; padding:15px 28px; display:flex; align-items:center; gap:16px; flex-wrap:wrap}
+.mark{font-family:"Archivo",sans-serif; font-weight:700; font-size:17px; letter-spacing:-.02em}
+.mark span{color:var(--muted); font-weight:500}
+.nav{display:flex; gap:4px; margin-left:6px}
+.nav a{padding:5px 11px; border-radius:6px; font-size:13px; color:var(--muted); text-decoration:none}
+.nav a:hover{background:var(--surface); color:var(--ink)}
+.nav a.on{background:var(--surface); color:var(--ink); font-weight:600}
+select{padding:7px 11px; font-family:inherit; font-size:13px; border:1px solid var(--line);
+  border-radius:7px; background:var(--surface); color:var(--ink); max-width:280px}
+.whoami{margin-left:auto; font-size:12px; color:var(--muted)}
+
+.eyebrow{font-size:11px; letter-spacing:.09em; text-transform:uppercase; color:var(--muted); font-weight:600; margin:0 0 11px}
+.panel{background:var(--panel); border:1px solid var(--line); border-radius:var(--r)}
+.panel-head{padding:15px 18px 12px; border-bottom:1px solid var(--line-soft); display:flex; align-items:center; gap:10px; flex-wrap:wrap}
+.panel-head h2{margin:0; font-family:"Archivo",sans-serif; font-size:14px; font-weight:600; letter-spacing:-.01em}
+.hint{font-size:12px; color:var(--muted); margin-left:auto}
+
+/* progress strip */
+.strip{padding:20px 22px; margin-top:22px; display:flex; align-items:center; gap:26px; flex-wrap:wrap}
+.big{font-family:"Archivo",sans-serif; font-size:40px; font-weight:700; letter-spacing:-.03em; line-height:1}
+.strip-sub{color:var(--muted); font-size:14px}
+.track{flex:1; min-width:200px; height:9px; border-radius:5px; background:var(--line-soft); overflow:hidden}
+.track i{display:block; height:100%; background:var(--calm); width:0%; transition:width .5s cubic-bezier(.4,0,.2,1)}
+.strip .right{margin-left:auto; display:flex; gap:10px; align-items:center; flex-wrap:wrap}
+
+.layout{display:grid; grid-template-columns:290px 1fr; gap:20px; margin-top:20px; align-items:start}
+
+/* submission list */
+.sub{padding:13px 18px; border-bottom:1px solid var(--line-soft); cursor:pointer; transition:background .12s}
+.sub:last-child{border-bottom:0}
+.sub:hover{background:var(--surface)}
+.sub.on{background:#F3F7FB; box-shadow:inset 3px 0 0 var(--slate)}
+.sub b{display:block; font-size:13.5px; font-weight:600}
+.sub .em{font-size:11px; color:var(--muted); font-family:"IBM Plex Mono",monospace; margin:2px 0 5px;
+  overflow:hidden; text-overflow:ellipsis; white-space:nowrap}
+.sub .tags{display:flex; gap:5px; flex-wrap:wrap}
+.tag{display:inline-block; padding:2px 7px; border-radius:20px; font-size:10.5px; font-weight:600;
+  font-family:"IBM Plex Mono",monospace}
+.t-pending{background:var(--watch-bg); color:var(--watch)}
+.t-done{background:var(--calm-bg); color:var(--calm)}
+.t-risk{background:var(--alert-bg); color:var(--alert)}
+.t-plain{background:var(--line-soft); color:var(--muted)}
+
+/* paper */
+.q{padding:20px 22px; border-bottom:1px solid var(--line-soft)}
+.q:last-of-type{border-bottom:0}
+.q-head{display:flex; align-items:baseline; gap:10px; margin-bottom:11px; flex-wrap:wrap}
+.q-n{font-family:"IBM Plex Mono",monospace; font-size:11px; color:var(--muted); letter-spacing:.07em}
+.q-text{font-size:15px; line-height:1.6; margin:0 0 14px; max-width:72ch}
+.ans{padding:14px 16px; background:var(--surface); border:1px solid var(--line); border-radius:8px;
+  font-size:14.5px; line-height:1.65; white-space:pre-wrap; max-width:74ch}
+.ans.blank{color:var(--muted); font-style:italic}
+.mcq{display:flex; flex-direction:column; gap:7px; max-width:62ch}
+.mopt{display:flex; align-items:flex-start; gap:10px; padding:9px 13px; border:1px solid var(--line);
+  border-radius:8px; background:var(--surface); font-size:14px}
+.mopt .oid{font-family:"IBM Plex Mono",monospace; font-size:12px; color:var(--muted); width:16px; flex-shrink:0}
+.mopt.picked{border-color:var(--slate); background:#F3F7FB}
+.mopt.right{border-color:var(--calm); background:var(--calm-bg)}
+.mopt.wrong{border-color:var(--alert); background:var(--alert-bg)}
+.mopt .lbl{margin-left:auto; font-size:11px; font-weight:600; text-transform:uppercase; letter-spacing:.05em}
+.marking{display:flex; align-items:center; gap:11px; margin-top:14px; padding-top:13px;
+  border-top:1px solid var(--line-soft); flex-wrap:wrap}
+.marking label{font-size:12.5px; color:var(--muted); font-weight:600}
+input[type=number]{width:74px; padding:7px 9px; font-family:"IBM Plex Mono",monospace; font-size:14px;
+  border:1px solid var(--line); border-radius:7px; background:var(--surface); color:var(--ink)}
+input[type=number]:focus, textarea:focus{outline:2px solid var(--slate); outline-offset:-1px; border-color:transparent; background:var(--panel)}
+.of{font-family:"IBM Plex Mono",monospace; font-size:13px; color:var(--muted)}
+.quick{display:flex; gap:5px}
+.fstrip{padding:16px 22px;border-bottom:1px solid var(--line-soft);background:var(--alert-bg)}
+.fstrip .row{display:flex;gap:11px;overflow-x:auto;padding-top:11px}
+.fcard{flex-shrink:0;width:132px}
+.fcard img{width:132px;height:99px;object-fit:cover;border-radius:7px;border:1px solid var(--line);background:var(--panel);display:block}
+.fcard .noclip{width:132px;height:99px;border-radius:7px;background:var(--panel);border:1px solid var(--line);
+  display:flex;align-items:center;justify-content:center;font-size:11px;color:var(--muted)}
+.fcard .cap{font-size:11px;margin-top:5px;color:var(--alert);font-weight:600}
+.fcard .cap small{display:block;color:var(--muted);font-weight:400;font-family:"IBM Plex Mono",monospace}
+.clean{padding:13px 22px;border-bottom:1px solid var(--line-soft);font-size:12.5px;color:var(--calm);background:var(--calm-bg)}
+.auto-note{font-family:"IBM Plex Mono",monospace; font-size:13px; margin-top:12px; padding-top:12px; border-top:1px solid var(--line-soft)}
+.auto-note.good{color:var(--calm)}
+.auto-note.bad{color:var(--alert)}
+textarea{width:100%; min-height:78px; padding:12px 14px; font-family:inherit; font-size:14px; line-height:1.6;
+  border:1px solid var(--line); border-radius:8px; background:var(--surface); color:var(--ink); resize:vertical}
+
+.foot{padding:16px 20px; border-top:1px solid var(--line-soft); display:flex; align-items:center; gap:12px; flex-wrap:wrap}
+.total{font-family:"IBM Plex Mono",monospace; font-size:21px; font-weight:600}
+.total small{font-size:13px; color:var(--muted); font-weight:400}
+
+button{padding:8px 16px; font-size:13px; font-family:inherit; font-weight:500; cursor:pointer;
+  border-radius:7px; border:1px solid var(--line); background:var(--panel); color:var(--ink); transition:.12s}
+button:hover:not(:disabled){border-color:var(--muted)}
+button:disabled{opacity:.4; cursor:not-allowed}
+button.primary{background:var(--slate); border-color:var(--slate); color:#fff}
+button.primary:hover:not(:disabled){background:#22384B}
+button.sm{padding:4px 9px; font-size:12px; font-family:"IBM Plex Mono",monospace}
+button:focus-visible{outline:2px solid var(--slate); outline-offset:2px}
+
+.ok{background:var(--calm-bg); color:var(--calm); padding:10px 12px; border-radius:7px; font-size:13px; margin:12px 20px 0}
+.err{background:var(--alert-bg); color:var(--alert); padding:10px 12px; border-radius:7px; font-size:13px; margin:12px 20px 0}
+.empty{padding:50px 20px; text-align:center; color:var(--muted); font-size:13px}
+.empty b{display:block; color:var(--ink); font-weight:600; margin-bottom:5px; font-size:14.5px}
+.hidden{display:none}
+@media (max-width:940px){ .layout{grid-template-columns:1fr} }
+@media (prefers-reduced-motion:reduce){ *{transition:none!important} }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="hbar">
+    <div class="mark">ProctorAI <span>/ marking</span></div>
+    <nav class="nav" id="nav">
+      <a href="author.html">Exams</a>
+      <a href="dashboard.html">Live</a>
+      <a href="grade.html" class="on">Marking</a>
+      <a href="summary.html">Report</a>
+    </nav>
+    <select id="examPick" onchange="loadSubs()"><option>Loading…</option></select>
+    <div class="whoami" id="who">—</div>
+  </div>
+</header>
+
+<div class="wrap">
+
+  <section class="panel strip">
+    <div>
+      <div class="big num" id="pBig">—</div>
+      <div class="strip-sub" id="pSub">Pick an exam to start marking</div>
+    </div>
+    <div class="track"><i id="pBar"></i></div>
+    <div class="right">
+      <span class="hint" id="pubState" style="margin:0"></span>
+      <button id="pubBtn" onclick="togglePublish()" disabled>Publish results</button>
+    </div>
+  </section>
+
+  <div class="layout">
+    <aside class="panel">
+      <div class="panel-head"><h2>Submissions</h2><span class="hint" id="subCount"></span></div>
+      <div id="subs"><div class="empty">Choose an exam above</div></div>
+    </aside>
+
+    <main>
+      <div class="panel hidden" id="paper">
+        <div class="panel-head">
+          <h2 id="pName">—</h2>
+          <span class="hint" id="pMeta"></span>
+        </div>
+        <div id="flagStrip"></div>
+        <div id="qs"></div>
+        <div class="q">
+          <p class="eyebrow">Feedback for the student</p>
+          <textarea id="fb" placeholder="Optional — shown with their result"></textarea>
+        </div>
+        <div id="msg"></div>
+        <div class="foot">
+          <div class="total"><span id="tAwarded">0</span><small> / <span id="tMax">0</span> marks</small></div>
+          <button class="primary" onclick="saveGrade()" id="saveBtn">Save marks</button>
+          <button onclick="nextUngraded()">Next ungraded</button>
+          <span class="hint" id="gradedNote" style="margin-left:auto"></span>
+        </div>
+      </div>
+
+      <div class="panel empty" id="placeholder" style="padding:70px 20px">
+        <b>No paper open</b>
+        Pick a submission from the left to start marking.
+      </div>
+    </main>
+  </div>
+</div>
+
+<script src="pa.js"></script>
+<script>
+const DOMAIN    = "https://ap-south-1yx4st7fyc.auth.ap-south-1.amazoncognito.com";
+const CLIENT_ID = "4aeuraag6jvio5kp81i32sjll5";
+const API       = "https://nju6z5l8hh.execute-api.ap-south-1.amazonaws.com";
+const REDIRECT  = window.location.origin + window.location.pathname;
+
+const $ = id => document.getElementById(id);
+const esc = s => String(s ?? "").replace(/[&<>"]/g, c => ({ "&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;" }[c]));
+
+let idToken = null, examId = null, data = null, current = null, marks = {};
+
+/* ---------- auth ---------- */
+  const paSession = PA.require("proctors");
+  if (!paSession) throw new Error("redirecting");
+  idToken = paSession.token;
+  PA.mountNav("nav", "who", paSession);
+
+const api  = p => fetch(`${API}${p}`, { headers:{ Authorization:`Bearer ${idToken}` } }).then(r => r.json());
+const post = (p,b) => fetch(`${API}${p}`, {
+  method:"POST", headers:{ "Content-Type":"application/json", Authorization:`Bearer ${idToken}` },
+  body:JSON.stringify(b)
+}).then(async r => ({ ok:r.ok, data:await r.json() }));
+
+const msg = (t, bad) => { $("msg").innerHTML = `<div class="${bad?"err":"ok"}">${esc(t)}</div>`;
+  if (!bad) setTimeout(() => $("msg").innerHTML = "", 3500); };
+
+/* ---------- exam picker ---------- */
+(async () => {
+  const d = await api("/exams");
+  if (d.error || !d.exams){ $("examPick").innerHTML = `<option>Couldn't load exams</option>`; return; }
+  const usable = d.exams.filter(e => e.status !== "draft");
+  if (!usable.length){ $("examPick").innerHTML = `<option>No published exams</option>`; return; }
+  $("examPick").innerHTML = `<option value="">Select an exam…</option>`
+    + usable.map(e => `<option value="${esc(e.exam_id)}">${esc(e.title)}</option>`).join("");
+})();
+
+/* ---------- submissions ---------- */
+async function loadSubs(){
+  examId = $("examPick").value;
+  current = null;
+  $("paper").classList.add("hidden");
+  $("placeholder").classList.remove("hidden");
+  if (!examId){ $("subs").innerHTML = `<div class="empty">Choose an exam above</div>`; return; }
+
+  $("subs").innerHTML = `<div class="empty">Loading…</div>`;
+  data = await api(`/submissions?exam_id=${encodeURIComponent(examId)}`);
+  if (data.error){ $("subs").innerHTML = `<div class="empty"><b>${esc(data.error)}</b></div>`; return; }
+
+  const subs = data.submissions || [];
+  const done = subs.filter(s => s.graded).length;
+  $("pBig").textContent = subs.length ? `${done}/${subs.length}` : "—";
+  $("pSub").textContent = subs.length
+    ? (done === subs.length ? "All papers marked" : `${subs.length - done} still to mark`)
+    : "No submissions yet";
+  $("pBar").style.width = subs.length ? (done / subs.length * 100) + "%" : "0%";
+  $("subCount").textContent = `${subs.length} total`;
+  $("pubBtn").disabled = false;
+  $("pubBtn").textContent = data.results_published ? "Hide results" : "Publish results";
+  $("pubState").textContent = data.results_published ? "Students can see their results" : "Results hidden from students";
+
+  if (!subs.length){
+    $("subs").innerHTML = `<div class="empty"><b>Nothing submitted yet</b>Papers appear here once students submit.</div>`;
+    return;
+  }
+
+  $("subs").innerHTML = subs.map(s => `
+    <div class="sub ${s.session_id===current?"on":""}" onclick="openPaper('${s.session_id}')">
+      <b>${esc(s.name)}</b>
+      <div class="em">${esc(s.email || s.session_id.slice(0,8))}</div>
+      <div class="tags">
+        <span class="tag ${s.graded?"t-done":"t-pending"}">${s.graded ? "marked" : s.pending_count + " to mark"}</span>
+        <span class="tag t-plain">${s.awarded}/${data.total_marks}</span>
+        ${s.flag_count ? `<span class="tag t-risk">${s.flag_count} flag${s.flag_count>1?"s":""}</span>` : ""}
+      </div>
+    </div>`).join("");
+}
+
+/* ---------- paper ---------- */
+function openPaper(sid){
+  const s = (data.submissions || []).find(x => x.session_id === sid);
+  if (!s) return;
+  current = sid;
+  marks = {};
+  s.questions.forEach(q => { if (q.type === "text" && q.manual !== null) marks[q.id] = q.manual; });
+
+  $("paper").classList.remove("hidden");
+  $("placeholder").classList.add("hidden");
+  $("pName").textContent = s.name;
+  $("pMeta").textContent = `${s.email} · submitted ${s.submitted_at ? new Date(s.submitted_at*1000).toLocaleString() : "—"}`
+    + (s.flag_count ? ` · ${s.flag_count} flagged moment${s.flag_count>1?"s":""}` : "");
+  $("fb").value = s.feedback || "";
+  $("tMax").textContent = data.total_marks;
+  $("gradedNote").textContent = s.graded ? "This paper is fully marked" : "";
+
+  const fl = s.flags || [];
+  $("flagStrip").innerHTML = fl.length ? `
+    <div class="fstrip">
+      <p class="eyebrow" style="margin:0;color:var(--alert)">
+        ${fl.length} flagged moment${fl.length>1?"s":""} during this attempt
+        ${s.closed_reason ? ` · session closed: ${esc(s.closed_reason)}` : ""}
+      </p>
+      <div class="row">${fl.map(f => `
+        <div class="fcard">
+          ${f.clip_signed_url
+            ? `<a href="${f.clip_signed_url}" target="_blank" rel="noopener"><img src="${f.clip_signed_url}" alt="Flagged frame"></a>`
+            : `<div class="noclip">no clip</div>`}
+          <div class="cap">${esc(String(f.event_type||"").replace(/_/g," "))}
+            <small>${Number(f.score).toFixed(2)} · ${new Date(f.timestamp).toLocaleTimeString()}</small></div>
+        </div>`).join("")}</div>
+    </div>`
+    : `<div class="clean">No proctoring flags were raised during this attempt.</div>`;
+
+  $("qs").innerHTML = s.questions.map((q,i) => {
+    let bodyHtml;
+    if (q.type === "mcq"){
+      const correct = q.answer === q.correct_option_id;
+      bodyHtml = `<div class="mcq">${(q.options||[]).map(o => {
+        const picked = q.answer === o.id, right = q.correct_option_id === o.id;
+        const cls = right ? "right" : (picked ? "wrong" : "");
+        const lbl = right ? `<span class="lbl" style="color:var(--calm)">correct</span>`
+          : (picked ? `<span class="lbl" style="color:var(--alert)">chosen</span>` : "");
+        return `<div class="mopt ${cls}"><span class="oid">${o.id.toUpperCase()}</span><span>${esc(o.text)}</span>${lbl}</div>`;
+      }).join("")}</div>
+      <div class="auto-note ${correct?"good":"bad"}">Auto-marked: ${q.auto ?? 0} / ${q.max_marks}${q.answer ? "" : " — not answered"}</div>`;
+    } else {
+      const blank = !String(q.answer||"").trim();
+      bodyHtml = `<div class="ans ${blank?"blank":""}">${blank ? "No answer given" : esc(q.answer)}</div>
+      <div class="marking">
+        <label for="m_${q.id}">Marks</label>
+        <input type="number" id="m_${q.id}" min="0" max="${q.max_marks}"
+          value="${q.manual !== null ? q.manual : ""}" placeholder="—"
+          oninput="setMark('${q.id}', this.value, ${q.max_marks})">
+        <span class="of">/ ${q.max_marks}</span>
+        <span class="quick">
+          <button class="sm" onclick="quick('${q.id}',0,${q.max_marks})">0</button>
+          <button class="sm" onclick="quick('${q.id}',${Math.floor(q.max_marks/2)},${q.max_marks})">${Math.floor(q.max_marks/2)}</button>
+          <button class="sm" onclick="quick('${q.id}',${q.max_marks},${q.max_marks})">${q.max_marks}</button>
+        </span>
+      </div>`;
+    }
+    return `<div class="q">
+      <div class="q-head">
+        <span class="q-n">QUESTION ${String(i+1).padStart(2,"0")} · ${q.type==="mcq"?"AUTO":"MANUAL"}</span>
+        <span class="q-n" style="margin-left:auto">${q.max_marks} marks</span>
+      </div>
+      <p class="q-text">${esc(q.text)}</p>
+      ${bodyHtml}
+    </div>`;
+  }).join("");
+
+  tally();
+  loadSubs.highlight = sid;
+  document.querySelectorAll(".sub").forEach(el => el.classList.remove("on"));
+  const idx = (data.submissions || []).findIndex(x => x.session_id === sid);
+  if (idx >= 0) document.querySelectorAll(".sub")[idx].classList.add("on");
+}
+
+function setMark(qid, val, max){
+  if (val === ""){ delete marks[qid]; tally(); return; }
+  let n = parseInt(val);
+  if (isNaN(n)) { delete marks[qid]; tally(); return; }
+  n = Math.max(0, Math.min(n, max));
+  marks[qid] = n;
+  tally();
+}
+function quick(qid, n, max){ $(`m_${qid}`).value = n; setMark(qid, n, max); }
+
+function tally(){
+  const s = (data.submissions || []).find(x => x.session_id === current);
+  if (!s) return;
+  const auto = s.questions.filter(q => q.type === "mcq").reduce((t,q) => t + (q.auto || 0), 0);
+  const manual = Object.values(marks).reduce((t,n) => t + n, 0);
+  $("tAwarded").textContent = auto + manual;
+}
+
+/* ---------- save ---------- */
+async function saveGrade(){
+  if (!current) return;
+  $("saveBtn").disabled = true;
+  const { ok, data: res } = await post("/grade", {
+    session_id: current, manual_marks: marks, feedback: $("fb").value
+  });
+  $("saveBtn").disabled = false;
+  if (!ok){ msg(res.error || "Couldn't save", true); return; }
+  msg(res.graded ? `Saved — ${res.total_awarded} marks, paper complete`
+                 : `Saved — ${res.total_awarded} marks so far, still incomplete`);
+  const keep = current;
+  await loadSubs();
+  openPaper(keep);
+}
+
+function nextUngraded(){
+  const subs = data.submissions || [];
+  const start = subs.findIndex(x => x.session_id === current);
+  for (let i = 1; i <= subs.length; i++){
+    const s = subs[(start + i) % subs.length];
+    if (!s.graded){ openPaper(s.session_id); window.scrollTo({top:0,behavior:"smooth"}); return; }
+  }
+  msg("Every paper is marked");
+}
+
+async function togglePublish(){
+  if (!examId) return;
+  const publish = $("pubBtn").textContent === "Publish results";
+  const { ok, data: res } = await post("/exams/results", { exam_id: examId, published: publish });
+  if (!ok){ msg(res.error || "Couldn't update", true); return; }
+  loadSubs();
+}
+</script>
+</body>
+</html>

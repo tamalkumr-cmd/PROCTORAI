@@ -1,0 +1,488 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>ProctorAI — Exam Builder</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Archivo:wght@500;600;700&family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+:root{
+  --surface:#FBFCFD; --panel:#FFFFFF; --ink:#16202B; --muted:#66788A;
+  --line:#E3E9EF; --line-soft:#EFF3F7; --slate:#2D4A63;
+  --calm:#167C55; --calm-bg:#E8F4EE;
+  --watch:#B26A00; --watch-bg:#FBF1E0;
+  --alert:#C3352B; --alert-bg:#FBEBEA;
+  --r:10px;
+}
+*{box-sizing:border-box}
+body{margin:0; background:var(--surface); color:var(--ink);
+  font-family:"IBM Plex Sans",system-ui,sans-serif; font-size:14px; line-height:1.5}
+.num{font-family:"IBM Plex Mono",monospace; font-variant-numeric:tabular-nums}
+.wrap{max-width:1280px; margin:0 auto; padding:0 28px 72px}
+
+header{border-bottom:1px solid var(--line); background:var(--panel); position:sticky; top:0; z-index:10}
+.hbar{max-width:1280px; margin:0 auto; padding:16px 28px; display:flex; align-items:center; gap:16px; flex-wrap:wrap}
+.mark{font-family:"Archivo",sans-serif; font-weight:700; font-size:17px; letter-spacing:-.02em}
+.mark span{color:var(--muted); font-weight:500}
+.nav{display:flex; gap:4px; margin-left:8px}
+.nav a{padding:5px 11px; border-radius:6px; font-size:13px; color:var(--muted); text-decoration:none}
+.nav a:hover{background:var(--surface); color:var(--ink)}
+.nav a.on{background:var(--surface); color:var(--ink); font-weight:600}
+.whoami{margin-left:auto; font-size:12px; color:var(--muted)}
+
+.eyebrow{font-size:11px; letter-spacing:.09em; text-transform:uppercase; color:var(--muted); font-weight:600; margin:0 0 12px}
+.panel{background:var(--panel); border:1px solid var(--line); border-radius:var(--r)}
+.panel-head{padding:15px 18px 12px; border-bottom:1px solid var(--line-soft); display:flex; align-items:center; gap:10px; flex-wrap:wrap}
+.panel-head h2{margin:0; font-family:"Archivo",sans-serif; font-size:14px; font-weight:600; letter-spacing:-.01em}
+.hint{font-size:12px; color:var(--muted); margin-left:auto}
+
+.layout{display:grid; grid-template-columns:290px 1fr; gap:20px; margin-top:24px; align-items:start}
+
+/* exam list */
+.ex{padding:13px 18px; border-bottom:1px solid var(--line-soft); cursor:pointer; transition:background .12s}
+.ex:last-child{border-bottom:0}
+.ex:hover{background:var(--surface)}
+.ex.on{background:#F3F7FB; box-shadow:inset 3px 0 0 var(--slate)}
+.ex b{display:block; font-weight:600; font-size:13.5px; margin-bottom:3px}
+.ex .meta{font-size:11.5px; color:var(--muted); font-family:"IBM Plex Mono",monospace}
+.pill{display:inline-block; padding:2px 8px; border-radius:20px; font-size:10.5px; font-weight:600;
+  text-transform:uppercase; letter-spacing:.05em; margin-right:6px}
+.p-draft{background:var(--line-soft); color:var(--muted)}
+.p-published{background:var(--calm-bg); color:var(--calm)}
+.p-closed{background:var(--watch-bg); color:var(--watch)}
+
+/* forms */
+.body{padding:18px}
+.row{display:flex; gap:14px; flex-wrap:wrap; margin-bottom:14px}
+.f{flex:1; min-width:150px}
+.f.full{flex-basis:100%}
+label{display:block; font-size:12px; font-weight:600; color:var(--muted); margin-bottom:5px}
+input[type=text], input[type=number], input[type=datetime-local], textarea, select{
+  width:100%; padding:9px 11px; font-family:inherit; font-size:14px;
+  border:1px solid var(--line); border-radius:7px; background:var(--surface); color:var(--ink);
+}
+textarea{resize:vertical; min-height:62px; line-height:1.55}
+input:focus, textarea:focus, select:focus{outline:2px solid var(--slate); outline-offset:-1px; border-color:transparent; background:var(--panel)}
+.checks{display:flex; gap:20px; flex-wrap:wrap; margin-bottom:6px}
+.check{display:flex; align-items:center; gap:7px; font-size:13.5px}
+.check input{width:auto; margin:0}
+
+/* questions */
+.q{border:1px solid var(--line); border-radius:8px; padding:14px; margin-bottom:12px; background:var(--surface)}
+.q-head{display:flex; align-items:center; gap:10px; margin-bottom:10px}
+.q-n{font-family:"IBM Plex Mono",monospace; font-size:11px; color:var(--muted); letter-spacing:.06em}
+.q-tools{margin-left:auto; display:flex; gap:5px}
+.opt{display:flex; align-items:center; gap:9px; margin-bottom:7px}
+.opt input[type=radio]{width:auto; margin:0; flex-shrink:0; accent-color:var(--calm)}
+.opt input[type=text]{background:var(--panel)}
+.opt .del{flex-shrink:0}
+.correct-l{font-size:11px; color:var(--calm); font-weight:600; width:52px; flex-shrink:0}
+.tally{display:flex; justify-content:space-between; align-items:center; padding:12px 0 0; border-top:1px solid var(--line-soft); margin-top:4px}
+.tally b{font-family:"IBM Plex Mono",monospace; font-size:16px}
+
+/* roster */
+.emails{display:flex; flex-wrap:wrap; gap:6px; margin-top:10px; max-height:150px; overflow-y:auto}
+.chip{display:inline-flex; align-items:center; gap:6px; padding:3px 6px 3px 10px; border-radius:20px;
+  background:var(--surface); border:1px solid var(--line); font-size:12px; font-family:"IBM Plex Mono",monospace}
+.chip button{padding:0 4px; border:0; background:none; color:var(--muted); cursor:pointer; font-size:14px; line-height:1}
+.chip button:hover{color:var(--alert)}
+
+/* buttons */
+button{padding:8px 15px; font-size:13px; font-family:inherit; font-weight:500; cursor:pointer;
+  border-radius:7px; border:1px solid var(--line); background:var(--panel); color:var(--ink); transition:.12s}
+button:hover:not(:disabled){border-color:var(--muted)}
+button:disabled{opacity:.4; cursor:not-allowed}
+button.primary{background:var(--slate); border-color:var(--slate); color:#fff}
+button.primary:hover:not(:disabled){background:#22384B}
+button.sm{padding:4px 10px; font-size:12px}
+button.danger{color:var(--alert)}
+button.danger:hover{border-color:var(--alert)}
+button:focus-visible{outline:2px solid var(--slate); outline-offset:2px}
+.bar{display:flex; gap:9px; align-items:center; flex-wrap:wrap; padding:15px 18px; border-top:1px solid var(--line-soft)}
+
+.ok{background:var(--calm-bg); color:var(--calm); padding:10px 12px; border-radius:7px; font-size:13px; margin:12px 18px 0}
+.err{background:var(--alert-bg); color:var(--alert); padding:10px 12px; border-radius:7px; font-size:13px; margin:12px 18px 0}
+.empty{padding:44px 20px; text-align:center; color:var(--muted); font-size:13px}
+.empty b{display:block; color:var(--ink); font-weight:600; margin-bottom:4px; font-size:14px}
+.hidden{display:none}
+@media (max-width:900px){ .layout{grid-template-columns:1fr} }
+@media (prefers-reduced-motion:reduce){ *{transition:none!important} }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="hbar">
+    <div class="mark">ProctorAI <span>/ builder</span></div>
+    <nav class="nav" id="nav">
+      <a href="author.html" class="on">Exams</a>
+      <a href="dashboard.html">Live</a>
+      <a href="summary.html">Report</a>
+    </nav>
+    <div class="whoami" id="who">—</div>
+  </div>
+</header>
+
+<div class="wrap">
+  <div class="layout">
+
+    <aside class="panel">
+      <div class="panel-head">
+        <h2>Your exams</h2>
+        <button class="sm primary" onclick="newExam()">New</button>
+      </div>
+      <div id="list"><div class="empty">Loading…</div></div>
+    </aside>
+
+    <main>
+      <div class="panel hidden" id="editor">
+        <div class="panel-head">
+          <h2 id="edTitle">New exam</h2>
+          <span class="hint" id="edId"></span>
+        </div>
+
+        <div class="body">
+          <div class="row">
+            <div class="f full">
+              <label for="fTitle">Title</label>
+              <input type="text" id="fTitle" placeholder="Cloud Architecture Midterm">
+            </div>
+          </div>
+          <div class="row">
+            <div class="f full">
+              <label for="fDesc">Instructions for students</label>
+              <textarea id="fDesc" placeholder="Answer all questions. Your camera stays on throughout."></textarea>
+            </div>
+          </div>
+          <div class="row">
+            <div class="f"><label for="fDur">Duration (minutes)</label><input type="number" id="fDur" value="60" min="1"></div>
+            <div class="f"><label for="fAtt">Attempts allowed</label><input type="number" id="fAtt" value="1" min="1"></div>
+            <div class="f"><label for="fStrikes">Warnings before auto-end</label><input type="number" id="fStrikes" value="3" min="1" max="10"></div>
+            <div class="f"><label for="fStrikes">Warnings before auto-end</label><input type="number" id="fStrikes" value="3" min="1" max="10"></div>
+            <div class="f"><label for="fThr">Risk threshold</label><input type="number" id="fThr" value="0.5" step="0.05" min="0" max="1"></div>
+          </div>
+          <div class="row">
+            <div class="f"><label for="fOpens">Opens at (optional)</label><input type="datetime-local" id="fOpens"></div>
+            <div class="f"><label for="fCloses">Closes at (optional)</label><input type="datetime-local" id="fCloses"></div>
+          </div>
+          <div class="checks">
+            <label class="check"><input type="checkbox" id="fShuffle"> Shuffle question order per student</label>
+            <label class="check"><input type="checkbox" id="fResume" checked> Allow resume after disconnect</label>
+            <label class="check"><input type="checkbox" id="fAuto"> End the exam automatically after repeated violations</label>
+            <label class="check"><input type="checkbox" id="fAuto"> End the exam automatically after repeated violations</label>
+          </div>
+        </div>
+
+        <div class="panel-head" style="border-top:1px solid var(--line-soft)">
+          <h2>Questions</h2>
+          <span class="hint">
+            <button class="sm" onclick="addQ('text')">+ Written</button>
+            <button class="sm" onclick="addQ('mcq')">+ Multiple choice</button>
+          </span>
+        </div>
+        <div class="body">
+          <div id="qs"></div>
+          <div class="tally">
+            <span style="color:var(--muted); font-size:13px"><span class="num" id="qCount">0</span> questions</span>
+            <span><span style="color:var(--muted); font-size:13px">Total marks </span><b id="qMarks">0</b></span>
+          </div>
+        </div>
+
+        <div class="panel-head" style="border-top:1px solid var(--line-soft)">
+          <h2>Who can sit this exam</h2>
+          <span class="hint"><span class="num" id="rCount">0</span> on the roster</span>
+        </div>
+        <div class="body">
+          <div class="row">
+            <div class="f full">
+              <label for="fEmails">Paste emails — commas, spaces or one per line</label>
+              <textarea id="fEmails" placeholder="rahul@vitstudent.ac.in&#10;priya@vitstudent.ac.in"></textarea>
+            </div>
+          </div>
+          <div style="display:flex; gap:9px; align-items:center; flex-wrap:wrap">
+            <button class="sm" onclick="addEmails()">Add to roster</button>
+            <button class="sm" onclick="document.getElementById('csv').click()">Upload CSV</button>
+            <input type="file" id="csv" accept=".csv,.txt" class="hidden" onchange="loadCSV(event)">
+            <span class="hint" style="margin:0">CSV: one email per line, or a column named email</span>
+          </div>
+          <div class="emails" id="emails"></div>
+        </div>
+
+        <div id="msg"></div>
+
+        <div class="bar">
+          <button class="primary" onclick="save()" id="saveBtn">Save</button>
+          <button onclick="setStatus('published')" id="pubBtn">Publish</button>
+          <button onclick="setStatus('closed')" id="closeBtn">Close exam</button>
+          <button onclick="toggleResults()" id="resBtn">Publish results</button>
+          <span class="hint" id="statusNote" style="margin-left:auto"></span>
+        </div>
+      </div>
+
+      <div class="panel empty" id="placeholder" style="padding:70px 20px">
+        <b>No exam open</b>
+        Pick one from the left, or create a new exam to get started.
+      </div>
+    </main>
+
+  </div>
+</div>
+
+<script src="pa.js"></script>
+<script>
+const DOMAIN    = "https://ap-south-1yx4st7fyc.auth.ap-south-1.amazoncognito.com";
+const CLIENT_ID = "4aeuraag6jvio5kp81i32sjll5";
+const API       = "https://nju6z5l8hh.execute-api.ap-south-1.amazonaws.com";
+const REDIRECT  = window.location.origin + window.location.pathname;
+
+const $ = id => document.getElementById(id);
+let idToken = null, current = null, questions = [], roster = [];
+
+/* ---------- auth ---------- */
+  const paSession = PA.require("proctors");
+  if (!paSession) throw new Error("redirecting");
+  idToken = paSession.token;
+  PA.mountNav("nav", "who", paSession);
+
+const api  = p => fetch(`${API}${p}`, { headers:{ Authorization:`Bearer ${idToken}` } }).then(r => r.json());
+const post = (p,b) => fetch(`${API}${p}`, {
+  method:"POST", headers:{ "Content-Type":"application/json", Authorization:`Bearer ${idToken}` },
+  body:JSON.stringify(b)
+}).then(async r => ({ ok:r.ok, data:await r.json() }));
+
+const toLocal = ts => {
+  if (!ts) return "";
+  const d = new Date(ts*1000);
+  const p = n => String(n).padStart(2,"0");
+  return `${d.getFullYear()}-${p(d.getMonth()+1)}-${p(d.getDate())}T${p(d.getHours())}:${p(d.getMinutes())}`;
+};
+const toEpoch = v => v ? Math.floor(new Date(v).getTime()/1000) : 0;
+const esc = s => String(s ?? "").replace(/[&<>"]/g, c => ({ "&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;" }[c]));
+const msg = (text, bad) => { $("msg").innerHTML = `<div class="${bad?"err":"ok"}">${esc(text)}</div>`;
+  if (!bad) setTimeout(() => { $("msg").innerHTML = ""; }, 4000); };
+
+/* ---------- exam list ---------- */
+async function loadList(){
+  const d = await api("/exams");
+  if (d.error){ $("list").innerHTML = `<div class="empty"><b>${esc(d.error)}</b></div>`; return; }
+  if (!d.exams.length){ $("list").innerHTML = `<div class="empty"><b>No exams yet</b>Create your first one.</div>`; return; }
+  $("list").innerHTML = d.exams.map(e => `
+    <div class="ex ${e.exam_id===current?"on":""}" onclick="open_('${e.exam_id}')">
+      <b>${esc(e.title)}</b>
+      <div class="meta">
+        <span class="pill p-${e.status}">${e.status}</span>
+        ${e.question_count}Q · ${e.total_marks}m · ${e.allowed_count} students
+      </div>
+    </div>`).join("");
+}
+
+function newExam(){
+  current = null; questions = []; roster = [];
+  $("editor").classList.remove("hidden");
+  $("placeholder").classList.add("hidden");
+  $("edTitle").textContent = "New exam";
+  $("edId").textContent = "";
+  $("fTitle").value = ""; $("fDesc").value = "";
+  $("fDur").value = 60; $("fAtt").value = 1; $("fThr").value = 0.5;
+  $("fOpens").value = ""; $("fCloses").value = "";
+  $("fShuffle").checked = false; $("fResume").checked = true;
+  $("fAuto").checked = false; $("fStrikes").value = 3;
+  $("fAuto").checked = false; $("fStrikes").value = 3;
+  $("statusNote").textContent = "Not saved yet";
+  ["pubBtn","closeBtn","resBtn"].forEach(b => $(b).disabled = true);
+  renderQs(); renderRoster(); loadList();
+  $("fTitle").focus();
+}
+
+async function open_(id){
+  const d = await api(`/exam?exam_id=${encodeURIComponent(id)}`);
+  if (d.error){ msg(d.error, true); return; }
+  const e = d.exam;
+  current = e.exam_id;
+  questions = (e.questions || []).map(q => ({ ...q, options: q.options || [] }));
+  roster = (e.allowed_emails || []).slice();
+
+  $("editor").classList.remove("hidden");
+  $("placeholder").classList.add("hidden");
+  $("edTitle").textContent = e.title || "Untitled";
+  $("edId").textContent = e.exam_id;
+  $("fTitle").value = e.title || "";
+  $("fDesc").value = e.description || "";
+  $("fDur").value = e.duration_min || 60;
+  $("fAtt").value = e.max_attempts || 1;
+  $("fThr").value = e.composite_threshold ?? 0.5;
+  $("fOpens").value = toLocal(e.opens_at);
+  $("fCloses").value = toLocal(e.closes_at);
+  $("fShuffle").checked = !!e.shuffle_questions;
+  $("fResume").checked = e.allow_resume !== false;
+  $("fAuto").checked = !!e.auto_terminate;
+  $("fStrikes").value = e.max_strikes || 3;
+  $("fAuto").checked = !!e.auto_terminate;
+  $("fStrikes").value = e.max_strikes || 3;
+  ["pubBtn","closeBtn","resBtn"].forEach(b => $(b).disabled = false);
+  $("pubBtn").textContent = e.status === "published" ? "Back to draft" : "Publish";
+  $("resBtn").textContent = e.results_published ? "Hide results" : "Publish results";
+  $("statusNote").textContent = `Status: ${e.status}`
+    + (e.results_published ? " · results visible to students" : "");
+  renderQs(); renderRoster(); loadList();
+}
+
+/* ---------- questions ---------- */
+function addQ(type){
+  const q = { id:"q" + Math.random().toString(36).slice(2,8), type, text:"", marks:1 };
+  if (type === "mcq"){
+    q.options = [{ id:"a", text:"" }, { id:"b", text:"" }];
+    q.correct_option_id = "a";
+  }
+  questions.push(q); renderQs();
+}
+function delQ(i){ questions.splice(i,1); renderQs(); }
+function moveQ(i,d){
+  const j = i + d;
+  if (j < 0 || j >= questions.length) return;
+  [questions[i], questions[j]] = [questions[j], questions[i]];
+  renderQs();
+}
+function addOpt(i){
+  const q = questions[i];
+  q.options.push({ id:String.fromCharCode(97 + q.options.length), text:"" });
+  renderQs();
+}
+function delOpt(i,j){
+  const q = questions[i];
+  if (q.options.length <= 2){ msg("An MCQ needs at least 2 options", true); return; }
+  q.options.splice(j,1);
+  if (!q.options.find(o => o.id === q.correct_option_id)) q.correct_option_id = q.options[0].id;
+  renderQs();
+}
+function setQ(i,f,v){ questions[i][f] = f==="marks" ? (parseInt(v)||1) : v; if (f==="marks") tally(); }
+function setOpt(i,j,v){ questions[i].options[j].text = v; }
+function setCorrect(i,oid){ questions[i].correct_option_id = oid; }
+
+function renderQs(){
+  if (!questions.length){
+    $("qs").innerHTML = `<div class="empty" style="padding:26px"><b>No questions yet</b>Add a written or multiple-choice question above.</div>`;
+    tally(); return;
+  }
+  $("qs").innerHTML = questions.map((q,i) => `
+    <div class="q">
+      <div class="q-head">
+        <span class="q-n">${String(i+1).padStart(2,"0")} · ${q.type === "mcq" ? "MULTIPLE CHOICE" : "WRITTEN"}</span>
+        <div class="q-tools">
+          <button class="sm" onclick="moveQ(${i},-1)" ${i===0?"disabled":""}>↑</button>
+          <button class="sm" onclick="moveQ(${i},1)" ${i===questions.length-1?"disabled":""}>↓</button>
+          <button class="sm danger" onclick="delQ(${i})">Remove</button>
+        </div>
+      </div>
+      <div class="row">
+        <div class="f" style="flex:4">
+          <label>Question</label>
+          <textarea oninput="setQ(${i},'text',this.value)" placeholder="Type the question">${esc(q.text)}</textarea>
+        </div>
+        <div class="f" style="flex:0 0 92px">
+          <label>Marks</label>
+          <input type="number" min="1" value="${q.marks}" oninput="setQ(${i},'marks',this.value)">
+        </div>
+      </div>
+      ${q.type === "mcq" ? `
+        <label>Options — select the correct one</label>
+        ${q.options.map((o,j) => `
+          <div class="opt">
+            <input type="radio" name="c${i}" ${o.id===q.correct_option_id?"checked":""} onchange="setCorrect(${i},'${o.id}')">
+            <span class="correct-l">${o.id===q.correct_option_id?"correct":""}</span>
+            <input type="text" value="${esc(o.text)}" placeholder="Option ${o.id.toUpperCase()}" oninput="setOpt(${i},${j},this.value)">
+            <button class="sm danger del" onclick="delOpt(${i},${j})">×</button>
+          </div>`).join("")}
+        <button class="sm" onclick="addOpt(${i})">+ Option</button>
+      ` : ""}
+    </div>`).join("");
+  tally();
+}
+
+function tally(){
+  $("qCount").textContent = questions.length;
+  $("qMarks").textContent = questions.reduce((s,q) => s + (parseInt(q.marks)||0), 0);
+}
+
+/* ---------- roster ---------- */
+function parseEmails(raw){
+  return raw.split(/[\s,;]+/).map(e => e.trim().toLowerCase()).filter(e => e.includes("@"));
+}
+function addEmails(){
+  const found = parseEmails($("fEmails").value);
+  if (!found.length){ msg("No email addresses found in that text", true); return; }
+  const before = roster.length;
+  roster = [...new Set([...roster, ...found])].sort();
+  $("fEmails").value = "";
+  renderRoster();
+  msg(`Added ${roster.length - before} — roster is now ${roster.length}`);
+}
+function delEmail(e){ roster = roster.filter(x => x !== e); renderRoster(); }
+function loadCSV(ev){
+  const f = ev.target.files[0];
+  if (!f) return;
+  const r = new FileReader();
+  r.onload = () => { $("fEmails").value = r.result; addEmails(); ev.target.value = ""; };
+  r.readAsText(f);
+}
+function renderRoster(){
+  $("rCount").textContent = roster.length;
+  $("emails").innerHTML = roster.map(e =>
+    `<span class="chip">${esc(e)}<button onclick="delEmail('${esc(e)}')" title="Remove">×</button></span>`).join("");
+}
+
+/* ---------- save ---------- */
+async function save(){
+  $("saveBtn").disabled = true;
+  const payload = {
+    exam_id: current || undefined,
+    title: $("fTitle").value,
+    description: $("fDesc").value,
+    duration_min: parseInt($("fDur").value) || 60,
+    max_attempts: parseInt($("fAtt").value) || 1,
+    composite_threshold: parseFloat($("fThr").value) || 0.5,
+    opens_at: toEpoch($("fOpens").value),
+    closes_at: toEpoch($("fCloses").value),
+    shuffle_questions: $("fShuffle").checked,
+    allow_resume: $("fResume").checked,
+    auto_terminate: $("fAuto").checked,
+    max_strikes: parseInt($("fStrikes").value) || 3,
+    auto_terminate: $("fAuto").checked,
+    max_strikes: parseInt($("fStrikes").value) || 3,
+    questions, allowed_emails: roster
+  };
+  const { ok, data } = await post("/exams", payload);
+  $("saveBtn").disabled = false;
+  if (!ok){ msg(data.error || "Save failed", true); return; }
+  current = data.exam_id;
+  $("edId").textContent = current;
+  ["pubBtn","closeBtn","resBtn"].forEach(b => $(b).disabled = false);
+  msg(`Saved — ${data.question_count} questions, ${data.total_marks} marks, ${data.allowed_count} students`);
+  loadList();
+}
+
+async function setStatus(status){
+  await save();
+  if (!current){ msg("Save the exam first", true); return; }
+  const target = ($("pubBtn").textContent === "Back to draft" && status === "published") ? "draft" : status;
+  const { ok, data } = await post("/exams/status", { exam_id: current, status: target });
+  if (!ok){ msg(data.error || "Couldn't change status", true); return; }
+  msg(`Exam is now ${data.status}`);
+  open_(current);
+}
+
+async function toggleResults(){
+  if (!current){ msg("Save the exam first", true); return; }
+  const publish = $("resBtn").textContent === "Publish results";
+  const { ok, data } = await post("/exams/results", { exam_id: current, published: publish });
+  if (!ok){ msg(data.error || "Couldn't update results", true); return; }
+  msg(data.results_published ? "Results are visible to students" : "Results hidden");
+  open_(current);
+}
+
+loadList();
+</script>
+</body>
+</html>
