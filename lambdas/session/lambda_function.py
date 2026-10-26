@@ -59,6 +59,60 @@ def auto_grade(exam, answers):
     return marks, total
 
 
+RUNNER = "proctorai-runner"
+MAX_CODE_QUESTIONS = 3
+lam = boto3.client("lambda", region_name=REGION)
+
+
+def invoke_runner(code, tests, limit_ms):
+    payload = json.dumps({"code": code, "tests": tests, "time_limit_ms": limit_ms})
+    try:
+        r = lam.invoke(FunctionName=RUNNER, InvocationType="RequestResponse",
+                       Payload=payload.encode())
+        return json.loads(r["Payload"].read())
+    except Exception as e:
+        print(f"runner invoke failed: {e}")
+        return {"results": [], "passed": 0, "total": len(tests),
+                "error": "Could not run your code. Try again."}
+
+
+def code_tests(q, hidden_too):
+    out = []
+    for t in (q.get("tests") or []):
+        if t.get("hidden") and not hidden_too:
+            continue
+        out.append({"name": t.get("name"), "input": t.get("input", ""),
+                    "expected": t.get("expected", ""), "hidden": bool(t.get("hidden"))})
+    return out
+
+
+def grade_code(exam, answers):
+    """Run every test of each code question. Marks are proportional to tests passed."""
+    marks, total, detail = {}, 0, {}
+    done = 0
+    for q in exam.get("questions", []):
+        if q.get("type") != "code":
+            continue
+        if done >= MAX_CODE_QUESTIONS:
+            break
+        done += 1
+        full = int(q.get("marks", 1))
+        tests = code_tests(q, True)
+        code = (answers.get(q["id"]) or "").strip()
+        if not code or not tests:
+            marks[q["id"]] = 0
+            detail[q["id"]] = {"passed": 0, "total": len(tests)}
+            continue
+        res = invoke_runner(code, tests, int(q.get("time_limit_ms", 2000)))
+        passed, count = int(res.get("passed", 0)), max(1, int(res.get("total", len(tests))))
+        awarded = int(round(full * passed / count))
+        marks[q["id"]] = awarded
+        total += awarded
+        detail[q["id"]] = {"passed": passed, "total": count,
+                           "compile_error": res.get("compile_error")}
+    return marks, total, detail
+
+
 def lambda_handler(event, context):
     try:
         me = identity(event)
@@ -188,12 +242,62 @@ def lambda_handler(event, context):
             return respond(409, {"error": "This session is already closed"})
 
         left = int(sess.get("expires_at", 0)) - int(time.time())
+        events = (body.get("code_events") or [])[:20]
+        if events:
+            sessions.update_item(
+                Key={"session_id": session_id},
+                UpdateExpression=("SET answers = :a, last_saved_at = :t, "
+                                  "code_events = list_append(if_not_exists(code_events, :e), :n)"),
+                ExpressionAttributeValues={":a": answers, ":t": int(time.time()),
+                                           ":e": [], ":n": events},
+            )
+        else:
+            sessions.update_item(
+                Key={"session_id": session_id},
+                UpdateExpression="SET answers = :a, last_saved_at = :t",
+                ExpressionAttributeValues={":a": answers, ":t": int(time.time())},
+            )
+        return respond(200, {"saved": True, "seconds_left": max(left, 0)})
+
+    # ---------------- run code against the sample tests ----------------
+    if path.endswith("/code/run"):
+        session_id = body.get("session_id")
+        qid = body.get("question_id")
+        code = body.get("code") or ""
+        sess = sessions.get_item(Key={"session_id": session_id}).get("Item")
+        if not sess:
+            return respond(404, {"error": "Session not found"})
+        if sess["student_id"] != me["sub"]:
+            return respond(403, {"error": "Not your session"})
+        if sess.get("status") != "active":
+            return respond(409, {"error": "This session is closed"})
+
+        now_s = int(time.time())
+        if now_s - int(sess.get("last_run_at", 0) or 0) < 3:
+            return respond(429, {"error": "Wait a moment before running again"})
+
+        exam = exams.get_item(Key={"exam_id": sess["exam_id"]}).get("Item") or {}
+        q = next((x for x in exam.get("questions", [])
+                  if x.get("id") == qid and x.get("type") == "code"), None)
+        if not q:
+            return respond(404, {"error": "Code question not found"})
+
+        tests = code_tests(q, False)
+        if not tests:
+            return respond(400, {"error": "This question has no sample tests to run"})
+
+        res = invoke_runner(code, tests, int(q.get("time_limit_ms", 2000)))
         sessions.update_item(
             Key={"session_id": session_id},
-            UpdateExpression="SET answers = :a, last_saved_at = :t",
-            ExpressionAttributeValues={":a": answers, ":t": int(time.time())},
+            UpdateExpression=("SET last_run_at = :t, "
+                              "run_count = if_not_exists(run_count, :z) + :one"),
+            ExpressionAttributeValues={":t": now_s, ":z": 0, ":one": 1},
         )
-        return respond(200, {"saved": True, "seconds_left": max(left, 0)})
+        return respond(200, {"results": res.get("results", []),
+                             "passed": res.get("passed", 0),
+                             "total": res.get("total", len(tests)),
+                             "compile_error": res.get("compile_error"),
+                             "error": res.get("error")})
 
     # ---------------- submit ----------------
     if path.endswith("/submit"):
@@ -209,6 +313,9 @@ def lambda_handler(event, context):
 
         exam = exams.get_item(Key={"exam_id": sess["exam_id"]}).get("Item") or {}
         auto_marks, auto_total = auto_grade(exam, answers)
+        code_marks, code_total, code_detail = grade_code(exam, answers)
+        auto_marks.update(code_marks)
+        auto_total += code_total
         needs_manual = any(q.get("type") == "text" for q in exam.get("questions", []))
         expired = int(time.time()) > int(sess.get("expires_at", 0))
 
@@ -216,7 +323,7 @@ def lambda_handler(event, context):
             Key={"session_id": session_id},
             UpdateExpression=(
                 "SET answers = :a, #s = :st, submitted_at = :t, ended_at = :t, "
-                "auto_marks = :am, auto_total = :at, graded = :g"
+                "auto_marks = :am, auto_total = :at, graded = :g, code_detail = :cd"
             ),
             ExpressionAttributeNames={"#s": "status"},
             ExpressionAttributeValues={
@@ -225,6 +332,7 @@ def lambda_handler(event, context):
                 ":t": int(time.time()),
                 ":am": auto_marks,
                 ":at": auto_total,
+                ":cd": code_detail,
                 ":g": not needs_manual,
             },
         )

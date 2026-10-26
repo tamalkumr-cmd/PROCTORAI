@@ -234,6 +234,8 @@ def lambda_handler(event, context):
                     "answer": (s.get("answers") or {}).get(qid),
                     "auto": auto.get(qid),
                     "manual": manual.get(qid),
+                    "language": q.get("language"),
+                    "test_count": len(q.get("tests", []) or []),
                 })
 
             flags = flagged.query(
@@ -269,6 +271,8 @@ def lambda_handler(event, context):
                 "graded": bool(s.get("graded")),
                 "awarded": awarded,
                 "pending_count": pending,
+                "code_detail": s.get("code_detail") or {},
+                "code_events": s.get("code_events") or [],
                 "feedback": s.get("feedback", ""),
                 "flags": flag_items,
                 "closed_reason": s.get("closed_reason"),

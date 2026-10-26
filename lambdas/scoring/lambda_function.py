@@ -255,6 +255,16 @@ def lambda_handler(event, context):
     if flags.get("tab_switch"):
         vs = max(vs, 0.6)
 
+    if flags.get("code_paste"):
+        vs = max(vs, 0.7)
+        detail["reason"] = "code_pasted"
+    elif flags.get("typing_spike"):
+        vs = max(vs, 0.5)
+        detail["reason"] = "typing_spike"
+    elif flags.get("robotic_timing"):
+        vs = max(vs, 0.5)
+        detail["reason"] = "robotic_typing"
+
     composite = (vs * vw) + (ks * kw)
     ts = int(time.time() * 1000)
 
@@ -292,7 +302,7 @@ def lambda_handler(event, context):
     )
 
     strike = None
-    is_violation = escalated or bool(flags.get("tab_switch"))
+    is_violation = escalated or bool(flags.get("tab_switch")) or bool(flags.get("code_paste"))
     if is_violation and exam.get("auto_terminate"):
         max_strikes = max(1, int(exam.get("max_strikes", 3) or 3))
         now_s = ts // 1000

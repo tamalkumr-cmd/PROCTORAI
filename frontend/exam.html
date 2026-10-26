@@ -130,6 +130,17 @@ button:focus-visible{outline:2px solid var(--slate); outline-offset:2px}
 @media (max-width:940px){ .grid{grid-template-columns:1fr} .side{position:static} }
 @media (prefers-reduced-motion:reduce){ *{animation:none!important; transition:none!important} }
 </style>
+
+  <!-- Monaco editor loader (MIT) -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/monaco-editor/0.52.2/min/vs/loader.min.js"></script>
+  <style>
+    .code-editor-wrap { border:1px solid #d0d5dd; border-radius:8px; overflow:hidden; margin-top:8px; }
+    .code-run-bar { display:flex; gap:8px; align-items:center; padding:6px 10px; background:#f9fafb; border-top:1px solid #d0d5dd; }
+    .code-run-bar button { padding:4px 14px; border-radius:6px; border:none; cursor:pointer; font-size:13px; }
+    .btn-run { background:#2563eb; color:#fff; }
+    .btn-run:hover { background:#1d4ed8; }
+    .run-out { font-family:monospace; font-size:12px; background:#111; color:#e5e7eb; padding:8px 12px; border-radius:0 0 8px 8px; white-space:pre-wrap; max-height:160px; overflow:auto; display:none; }
+  </style>
 </head>
 <body>
 
@@ -309,7 +320,14 @@ function renderPaper(){
         <span class="q-m">${q.marks} ${q.marks===1?"mark":"marks"}</span>
       </div>
       <p class="q-text">${esc(q.text)}</p>
-      ${q.type === "mcq" ? `
+      ${q.type === "code" ? `
+        <div class="code-editor-wrap" data-qid="${q.id}" data-lang="${q.language||'python'}" data-starter="${(q.starter_code||'').replace(/`/g,'\`')}" style="height:260px"></div>
+        <div class="code-run-bar">
+          <button class="btn-run" onclick="runCode('${q.id}')">&#9654; Run</button>
+          <span style="font-size:12px;color:#6b7280">Sample tests only</span>
+        </div>
+        <pre class="run-out" id="run_out_${q.id}"></pre>
+      ` : q.type === "mcq" ? `
         <div class="opts">
           ${(q.options||[]).map(o => `
             <label class="opt ${answers[q.id]===o.id?"on":""}" id="o_${q.id}_${o.id}">
@@ -418,6 +436,10 @@ async function monitorTick(){
     c.getContext("2d").drawImage(v, 0, 0);
     image = c.toDataURL("image/jpeg", 0.7);
   }
+
+  window._pendingCodeFlags = window._pendingCodeFlags || {};
+  for (var _k in window._pendingCodeFlags) { flags[_k] = window._pendingCodeFlags[_k]; }
+  window._pendingCodeFlags = {};
 
   const { ok, data } = await post("/frame", {
     session_id: session.session_id, flags, image,
@@ -543,5 +565,145 @@ async function submit(auto){
     <div class="kv"><span>Identity checks</span><b>${rekogCalls}</b></div>`;
 }
 </script>
+
+<script>
+// ── code question support ─────────────────────────────────────────
+const _editors = {};          // qid → monaco editor instance
+const _codeTyping = {};       // qid → {buf, last, flagged}
+const _codePaste = {};        // qid → {count, maxLen}
+
+function mountEditors() {
+  var divs = document.querySelectorAll('.code-editor-wrap[data-qid]');
+  if (!divs.length) return;
+  require.config({ paths: { vs: 'https://cdnjs.cloudflare.com/ajax/libs/monaco-editor/0.52.2/min/vs' } });
+  require(['vs/editor/editor.main'], function() {
+    for (var i = 0; i < divs.length; i++) {
+      (function(wrap) {
+        if (wrap.getAttribute('data-mounted')) return;
+        wrap.setAttribute('data-mounted', '1');
+        var qid  = wrap.getAttribute('data-qid');
+        var lang = wrap.getAttribute('data-lang') || 'python';
+        var init = (wrap.getAttribute('data-starter') || '').replace(/\\n/g, '\n');
+        var ed = monaco.editor.create(wrap, {
+          value: init, language: lang, theme: 'vs', fontSize: 13,
+          minimap: { enabled: false }, scrollBeyondLastLine: false,
+          automaticLayout: true, lineNumbers: 'on'
+        });
+        _editors[qid]    = ed;
+        _codeTyping[qid] = { buf: [], last: Date.now(), flagged: false };
+        _codePaste[qid]  = { count: 0, maxLen: 0 };
+        answers[qid] = ed.getValue();
+        ed.onDidChangeModelContent(function(e) {
+          answers[qid] = ed.getValue();
+          dirty = true;
+          if (typeof renderDots === 'function') renderDots();
+          trackTyping(qid, e);
+        });
+        ed.onDidPaste(function(e) {
+          var len = ed.getModel().getValueInRange(e.range).length;
+          if (len >= 40) {
+            _codePaste[qid].count++;
+            if (len > _codePaste[qid].maxLen) _codePaste[qid].maxLen = len;
+            sendTelemetry(qid, { code_paste: true, paste_len: len });
+          }
+        });
+      })(divs[i]);
+    }
+  });
+}
+setInterval(mountEditors, 700);
+
+function trackTyping(qid, e) {
+  const now = Date.now();
+  const t   = _codeTyping[qid];
+  const chars = e.changes.reduce((n, c) => n + c.text.length, 0);
+  t.buf.push({ chars, ts: now });
+  // keep 3-second window
+  t.buf = t.buf.filter(x => now - x.ts < 3000);
+  const total = t.buf.reduce((n, x) => n + x.chars, 0);
+  if (total > 25 * 3 && !t.flagged) {   // >25 chars/sec over 3 s
+    t.flagged = true;
+    if (typeof sendTelemetry === 'function') sendTelemetry(qid, { typing_spike: true });
+  }
+  t.last = now;
+}
+
+function sendTelemetry(qid, flags) {
+  if (!session || !session.session_id) return;
+  var ev = { question_id: qid, ts: Date.now() };
+  for (var k in flags) { ev[k] = flags[k]; }
+  window._pendingCodeFlags = window._pendingCodeFlags || {};
+  for (var k2 in flags) { window._pendingCodeFlags[k2] = flags[k2]; }
+  try { post('/answers', { session_id: session.session_id, answers: answers, code_events: [ev] }); } catch (e) {}
+}
+
+async function runCode(qid) {
+  var ed = _editors[qid];
+  if (!ed) return;
+  var outEl = document.getElementById('run_out_' + qid);
+  if (!outEl) return;
+  outEl.style.display = 'block';
+  outEl.textContent = 'Running...';
+  try {
+    var r = await post('/code/run', {
+      session_id: session.session_id,
+      question_id: qid,
+      code: ed.getValue()
+    });
+    if (!r.ok) {
+      outEl.textContent = 'Error: ' + ((r.data && r.data.error) || 'request failed');
+      return;
+    }
+    if (r.data && r.data.compile_error) {
+      outEl.textContent = "Compile error:\n" + r.data.compile_error;
+      return;
+    }
+    var results = (r.data && r.data.results) || [];
+    var lines = results.map(function(x, i) {
+      var name = x.name || ("Test " + (i + 1));
+      var head = name + ": " + (x.passed ? "PASS" : "FAIL")
+               + (x.time_ms != null ? "  (" + x.time_ms + " ms)" : "");
+      if (x.passed) return head;
+      if (x.hidden) return head + "  (hidden test)";
+      var got = x.got !== undefined ? x.got
+              : x.stdout !== undefined ? x.stdout
+              : x.output !== undefined ? x.output
+              : x.actual;
+      var parts = [head];
+      if (x.input !== undefined)    parts.push("  input:    " + JSON.stringify(x.input));
+      if (x.expected !== undefined) parts.push("  expected: " + JSON.stringify(x.expected));
+      if (got !== undefined)        parts.push("  got:      " + JSON.stringify(got));
+      if (x.error)                  parts.push("  error:    " + x.error);
+      if (x.stderr)                 parts.push("  stderr:   " + x.stderr);
+      return parts.join("\n");
+    });
+    var head = (r.data && r.data.total != null)
+             ? (r.data.passed + " / " + r.data.total + " sample tests passed\n\n") : "";
+    outEl.textContent = head + (lines.join("\n") || "No tests returned.");
+  } catch (e) {
+    outEl.textContent = 'Network error: ' + (e && e.message ? e.message : e);
+  }
+}
+
+// hook into existing showQ to mount editors when a code question appears
+const _origShowQ = typeof showQ === 'function' ? showQ : null;
+function showQCode(idx) {
+  if (_origShowQ) _origShowQ(idx);
+  // mount any unmounted editor in the visible question
+  setTimeout(mountEditors, 50);
+}
+// override showQ after page load
+document.addEventListener('DOMContentLoaded', () => {
+  if (typeof showQ === 'function') {
+    // re-assign
+    window._showQOrig = showQ;
+    // patch: mountEditors is safe to call multiple times
+    const _orig = window.showQ;
+    window.showQ = function(idx) { _orig(idx); setTimeout(mountEditors, 80); };
+  }
+  mountEditors();
+});
+</script>
 </body>
 </html>
+
